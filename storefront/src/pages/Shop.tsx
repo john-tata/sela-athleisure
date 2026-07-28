@@ -11,6 +11,10 @@ interface Product {
   compare_price?: number;
   created_at?: string;
 
+  category_id?: string;
+  category_name?: string;
+  category_slug?: string;
+
   images?: {
     url: string;
     alt_text?: string;
@@ -26,6 +30,14 @@ interface Product {
   is_bestseller?: boolean;
 }
 
+const categoryOptions = [
+  { name: 'Sports Bras', slug: 'sports-bras' },
+  { name: 'Leggings', slug: 'leggings' },
+  { name: 'Shorts', slug: 'shorts' },
+  { name: 'Sets', slug: 'sets' },
+  { name: 'Accessories', slug: 'accessories' },
+];
+
 export function Shop() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,16 +45,23 @@ export function Shop() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // The actual URL value
   const urlSort = searchParams.get('sort');
-
-  // If no sort is specified, we still show newest first
   const sort = urlSort || 'newest';
 
-  // Only show "New Arrivals" when the user explicitly visits
-  // /shop?sort=newest
+  const urlCategory = searchParams.get('category');
+
+  // Supports:
+  // /shop?category=sets
+  // /shop?category=sets,leggings
+  const selectedCategories = urlCategory
+    ? urlCategory.split(',').filter(Boolean)
+    : [];
+
   const isNewArrivals = urlSort === 'newest';
 
+  /*
+   * LOAD PRODUCTS
+   */
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -70,11 +89,21 @@ export function Shop() {
   }, []);
 
   /*
-   * SORT PRODUCTS
+   * FILTER + SORT PRODUCTS
    */
   const sortedProducts = useMemo(() => {
-    const result = [...products];
+    let result = [...products];
 
+    // Category filtering
+    if (selectedCategories.length > 0) {
+      result = result.filter(
+        (product) =>
+          product.category_slug &&
+          selectedCategories.includes(product.category_slug)
+      );
+    }
+
+    // Sorting
     switch (sort) {
       case 'newest':
         result.sort((a, b) => {
@@ -107,28 +136,69 @@ export function Shop() {
     }
 
     return result;
-  }, [products, sort]);
+  }, [products, sort, urlCategory]);
 
   /*
-   * CHANGE SORT
+   * CATEGORY FILTER TOGGLE
    */
-  const handleSortChange = (value: string) => {
-    if (value === 'default') {
-      setSearchParams({});
-      return;
+  const toggleCategory = (categorySlug: string) => {
+    const currentCategories = [...selectedCategories];
+
+    const exists = currentCategories.includes(categorySlug);
+
+    const nextCategories = exists
+      ? currentCategories.filter(
+          (category) => category !== categorySlug
+        )
+      : [...currentCategories, categorySlug];
+
+    const nextParams: Record<string, string> = {};
+
+    if (nextCategories.length > 0) {
+      nextParams.category = nextCategories.join(',');
     }
 
-    setSearchParams({
-      sort: value,
-    });
+    if (urlSort) {
+      nextParams.sort = urlSort;
+    }
+
+    setSearchParams(nextParams);
+  };
+
+  /*
+   * CLEAR CATEGORY FILTER
+   */
+  const clearCategories = () => {
+    const nextParams: Record<string, string> = {};
+
+    if (urlSort) {
+      nextParams.sort = urlSort;
+    }
+
+    setSearchParams(nextParams);
+  };
+
+  /*
+   * SORT CHANGE
+   */
+  const handleSortChange = (value: string) => {
+    const nextParams: Record<string, string> = {};
+
+    if (selectedCategories.length > 0) {
+      nextParams.category = selectedCategories.join(',');
+    }
+
+    if (value !== 'default') {
+      nextParams.sort = value;
+    }
+
+    setSearchParams(nextParams);
   };
 
   return (
     <main className="min-h-screen bg-white pt-[60px] lg:pt-[72px]">
 
-      {/* =====================================================
-          SHOP HEADER
-      ====================================================== */}
+      {/* SHOP HEADER */}
       <section className="px-4 sm:px-6 lg:px-12 py-12 lg:py-20 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
 
@@ -145,69 +215,109 @@ export function Shop() {
         </div>
       </section>
 
-
-      {/* =====================================================
-          PRODUCTS SECTION
-      ====================================================== */}
+      {/* PRODUCTS SECTION */}
       <section className="px-4 sm:px-6 lg:px-12 py-10 lg:py-14">
         <div className="max-w-7xl mx-auto">
 
-          {/* =================================================
-              TOOLBAR
-          ================================================== */}
+          {/* TOOLBAR */}
           {!loading && !error && products.length > 0 && (
-            <div className="flex items-center justify-between mb-8">
+            <div className="space-y-6 mb-10">
 
-              {/* Product Count */}
-              <p className="font-body text-sm text-cool-gray">
-                {sortedProducts.length}{' '}
-                {sortedProducts.length === 1
-                  ? 'product'
-                  : 'products'}
-              </p>
+              {/* Product count + sort */}
+              <div className="flex items-center justify-between">
 
-              {/* Sort */}
-              <div className="flex items-center gap-3">
-                <label
-                  htmlFor="sort"
-                  className="hidden sm:block font-body text-sm text-cool-gray"
-                >
-                  Sort by
-                </label>
+                <p className="font-body text-sm text-cool-gray">
+                  {sortedProducts.length}{' '}
+                  {sortedProducts.length === 1
+                    ? 'product'
+                    : 'products'}
+                </p>
 
-                <select
-                  id="sort"
-                  value={urlSort || 'default'}
-                  onChange={(e) =>
-                    handleSortChange(e.target.value)
-                  }
-                  className="border border-gray-200 bg-white px-4 py-2.5 font-body text-sm text-rich-black outline-none transition-colors hover:border-gray-400 focus:border-rich-black"
-                >
-                  <option value="default">
-                    Featured
-                  </option>
+                <div className="flex items-center gap-3">
 
-                  <option value="newest">
-                    Newest
-                  </option>
+                  <label
+                    htmlFor="sort"
+                    className="hidden sm:block font-body text-sm text-cool-gray"
+                  >
+                    Sort by
+                  </label>
 
-                  <option value="price-low">
-                    Price: Low to High
-                  </option>
+                  <select
+                    id="sort"
+                    value={urlSort || 'default'}
+                    onChange={(e) =>
+                      handleSortChange(e.target.value)
+                    }
+                    className="border border-gray-200 bg-white px-4 py-2.5 font-body text-sm text-rich-black outline-none transition-colors hover:border-gray-400 focus:border-rich-black"
+                  >
+                    <option value="default">
+                      Featured
+                    </option>
 
-                  <option value="price-high">
-                    Price: High to Low
-                  </option>
-                </select>
+                    <option value="newest">
+                      Newest
+                    </option>
+
+                    <option value="price-low">
+                      Price: Low to High
+                    </option>
+
+                    <option value="price-high">
+                      Price: High to Low
+                    </option>
+                  </select>
+
+                </div>
+              </div>
+
+              {/* CATEGORY FILTERS */}
+              <div>
+                <div className="flex flex-wrap gap-2">
+
+                  {/* All */}
+                  <button
+                    type="button"
+                    onClick={clearCategories}
+                    className={`px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors ${
+                      selectedCategories.length === 0
+                        ? 'bg-rich-black text-white border-rich-black'
+                        : 'bg-white text-rich-black border-gray-200 hover:border-rich-black'
+                    }`}
+                  >
+                    All
+                  </button>
+
+                  {/* Categories */}
+                  {categoryOptions.map((category) => {
+                    const selected = selectedCategories.includes(
+                      category.slug
+                    );
+
+                    return (
+                      <button
+                        key={category.slug}
+                        type="button"
+                        onClick={() =>
+                          toggleCategory(category.slug)
+                        }
+                        className={`px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors ${
+                          selected
+                            ? 'bg-rich-black text-white border-rich-black'
+                            : 'bg-white text-rich-black border-gray-200 hover:border-rich-black'
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+
+                </div>
               </div>
 
             </div>
           )}
 
-
-          {/* =================================================
-              LOADING STATE
-          ================================================== */}
+          {/* LOADING STATE */}
           {loading && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-10">
 
@@ -227,10 +337,7 @@ export function Shop() {
             </div>
           )}
 
-
-          {/* =================================================
-              ERROR STATE
-          ================================================== */}
+          {/* ERROR STATE */}
           {!loading && error && (
             <div className="py-20 text-center">
 
@@ -248,30 +355,32 @@ export function Shop() {
             </div>
           )}
 
-
-          {/* =================================================
-              EMPTY STATE
-          ================================================== */}
+          {/* EMPTY STATE */}
           {!loading &&
             !error &&
             sortedProducts.length === 0 && (
               <div className="py-20 text-center">
 
                 <p className="font-body text-gray-500">
-                  No products available yet.
+                  No products found in this category.
                 </p>
+
+                {selectedCategories.length > 0 && (
+                  <button
+                    onClick={clearCategories}
+                    className="mt-4 font-body text-sm text-rich-black underline underline-offset-4 hover:text-gold"
+                  >
+                    Clear filters
+                  </button>
+                )}
 
               </div>
             )}
 
-
-          {/* =================================================
-              PRODUCT GRID
-          ================================================== */}
+          {/* PRODUCT GRID */}
           {!loading &&
             !error &&
             sortedProducts.length > 0 && (
-
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-10">
 
                 {sortedProducts.map((product) => (
@@ -282,7 +391,6 @@ export function Shop() {
                 ))}
 
               </div>
-
             )}
 
         </div>
