@@ -10,7 +10,7 @@ const catchAsync = require('../../utils/catchAsync');
 const createOrderSchema = z.object({
   items: z.array(z.object({
     productId: z.string().uuid(),
-    variantId: z.string().uuid(),
+    variantId: z.string().uuid().optional(),
     variantName: z.string().optional(),
     quantity: z.number().int().positive(),
   })).min(1),
