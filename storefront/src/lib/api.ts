@@ -1,0 +1,93 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
+function getGuestToken() {
+  let token = localStorage.getItem('guest_token');
+
+  if (!token) {
+    token = crypto.randomUUID();
+    localStorage.setItem('guest_token', token);
+  }
+
+  return token;
+}
+
+async function fetchApi(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_URL}${endpoint}`;
+  const token = localStorage.getItem('sb_token');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...((options.headers as Record<string, string>) || {}),
+  };
+
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  if (endpoint.startsWith('/cart') && !token) {
+    headers['x-guest-token'] = getGuestToken();
+  }
+
+  const res = await fetch(url, { ...options, headers });
+  const data = await res.json().catch(() => ({ message: 'Request failed' }));
+
+  if (!res.ok) {
+    const message =
+      typeof data.message === 'string'
+        ? data.message
+        : typeof data.error === 'string'
+          ? data.error
+          : JSON.stringify(data.message || data.error || data);
+
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+export const api = {
+  // Products
+  getProducts: (params = '') => fetchApi(`/products?${params}`),
+  getProduct: (slug: string) => fetchApi(`/products/${slug}`),
+
+  // Categories
+  getCategories: () => fetchApi('/categories'),
+  getCategory: (slug: string) => fetchApi(`/categories/${slug}`),
+
+   // Cart
+getCart: () => fetchApi('/cart'),
+
+addToCart: (
+  payload: {
+    productId?: string;
+    variantId?: string;
+    quantity?: number;
+  }
+) =>
+  fetchApi('/cart/items', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+
+removeFromCart: (itemId: string) =>
+  fetchApi(`/cart/items/${itemId}`, {
+    method: 'DELETE',
+  }),
+
+updateCartItem: (itemId: string, quantity: number) =>
+  fetchApi(`/cart/items/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ quantity }),
+  }),
+
+  // Orders
+  createOrder: (orderData: any) => fetchApi('/orders', { method: 'POST', body: JSON.stringify(orderData) }),
+  getOrders: () => fetchApi('/orders'),
+
+  // Payments
+  initializePayment: (orderId: string) =>
+    fetchApi('/payments/initialize', { method: 'POST', body: JSON.stringify({ orderId }) }),
+  verifyPayment: (reference: string) => fetchApi(`/payments/verify/${reference}`),
+
+  // Content
+  getContent: (section: string) => fetchApi(`/content/${section}`),
+  getAllContent: () => fetchApi('/content/all'),
+};

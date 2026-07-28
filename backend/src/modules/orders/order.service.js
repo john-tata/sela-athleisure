@@ -1,0 +1,256 @@
+const { supabaseAdmin } = require('../../config/supabase');
+const AppError = require('../../utils/AppError');
+
+// ============================================
+// EXISTING: Storefront queries (PRESERVED)
+// ============================================
+
+async function createOrder({ userId, guestEmail, items, shippingAddress, billingAddress }) {
+  const orderNumber = `SEL${Date.now()}`;
+  
+  let subtotal = 0;
+  const orderItems = [];
+  
+  for (const item of items) {
+    const { data: product } = await supabaseAdmin
+      .from('products')
+      .select('name, base_price, compare_price')
+      .eq('id', item.productId)
+      .single();
+    
+    if (!product) throw new AppError(`Product ${item.productId} not found`, 400, 'INVALID_PRODUCT');
+    
+    const price = product.compare_price || product.base_price;
+    subtotal += price * item.quantity;
+    
+    orderItems.push({
+      product_id: item.productId,
+      variant_id: item.variantId,
+      product_name: product.name,
+      variant_name: item.variantName || 'Default',
+      quantity: item.quantity,
+      unit_price: price,
+    });
+  }
+
+  const shipping = subtotal > 50000 ? 0 : 3500;
+  const total = subtotal + shipping;
+
+  const { data: order, error } = await supabaseAdmin
+    .from('orders')
+    .insert({
+      order_number: orderNumber,
+      user_id: userId,
+      guest_email: guestEmail,
+      subtotal,
+      shipping,
+      total,
+      shipping_address: shippingAddress,
+      billing_address: billingAddress,
+    })
+    .select()
+    .single();
+
+  if (error) throw new AppError(error.message, 500, 'DATABASE_ERROR');
+
+  const itemsWithOrderId = orderItems.map(item => ({
+    ...item,
+    order_id: order.id,
+  }));
+
+  const { error: itemsError } = await supabaseAdmin
+    .from('order_items')
+    .insert(itemsWithOrderId);
+
+  if (itemsError) throw new AppError(itemsError.message, 500, 'DATABASE_ERROR');
+
+  return { ...order, items: orderItems };
+}
+
+async function getOrderById(orderId) {
+  const { data: order, error } = await supabaseAdmin
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (error || !order) throw new AppError('Order not found', 404, 'NOT_FOUND');
+
+  const { data: items } = await supabaseAdmin
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId);
+
+  return { ...order, items: items || [] };
+}
+
+async function getUserOrders(userId) {
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .select(`
+      *,
+      order_items(*)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  return data || [];
+}
+
+async function updatePaymentStatus(orderId, { status, reference }) {
+  const { error } = await supabaseAdmin
+    .from('orders')
+    .update({
+      payment_status: status,
+      paystack_reference: reference,
+      status: status === 'paid' ? 'confirmed' : undefined,
+    })
+    .eq('id', orderId);
+
+  if (error) throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  return { updated: true };
+}
+
+// ============================================
+// NEW: Admin order management
+// ============================================
+
+async function getAllOrders({ status, limit = 50, offset = 0 } = {}) {
+  let query = supabaseAdmin
+    .from('orders')
+    .select(`
+      *,
+      order_items(*)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (status) query = query.eq('status', status);
+
+  const { data, error } = await query.range(offset, offset + limit - 1);
+
+  if (error) throw new AppError(error.message, 500, 'DATABASE_ERROR');
+
+  // Normalize response for admin
+  return (data || []).map(order => ({
+    id: order.id,
+    order_number: order.order_number,
+    status: order.status,
+    payment_status: order.payment_status,
+    total_amount: order.total,
+    subtotal: order.subtotal,
+    shipping: order.shipping,
+    customer_name: order.shipping_address?.full_name || order.guest_email || 'Guest',
+    customer_email: order.guest_email || order.shipping_address?.email || '',
+    customer_phone: order.shipping_address?.phone || '',
+    shipping_address: formatAddress(order.shipping_address),
+    billing_address: formatAddress(order.billing_address),
+    paystack_reference: order.paystack_reference,
+    notes: order.notes,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    items: (order.order_items || []).map(item => ({
+      id: item.id,
+      product_name: item.product_name,
+      variant_label: item.variant_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.unit_price * item.quantity,
+    })),
+  }));
+}
+
+async function getOrderDetail(orderId) {
+  const { data: order, error } = await supabaseAdmin
+    .from('orders')
+    .select(`
+      *,
+      order_items(*)
+    `)
+    .eq('id', orderId)
+    .single();
+
+  if (error || !order) throw new AppError('Order not found', 404, 'NOT_FOUND');
+
+  return {
+    id: order.id,
+    order_number: order.order_number,
+    status: order.status,
+    payment_status: order.payment_status,
+    total_amount: order.total,
+    subtotal: order.subtotal,
+    shipping: order.shipping,
+    customer_name: order.shipping_address?.full_name || order.guest_email || 'Guest',
+    customer_email: order.guest_email || order.shipping_address?.email || '',
+    customer_phone: order.shipping_address?.phone || '',
+    shipping_address: formatAddress(order.shipping_address),
+    billing_address: formatAddress(order.billing_address),
+    paystack_reference: order.paystack_reference,
+    notes: order.notes,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    items: (order.order_items || []).map(item => ({
+      id: item.id,
+      product_name: item.product_name,
+      variant_label: item.variant_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.unit_price * item.quantity,
+    })),
+  };
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+  const validStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+  if (!validStatuses.includes(newStatus)) {
+    throw new AppError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`, 400, 'INVALID_STATUS');
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('orders')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .select()
+    .single();
+
+  if (error) throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  if (!data) throw new AppError('Order not found', 404, 'NOT_FOUND');
+
+  return {
+    id: data.id,
+    order_number: data.order_number,
+    status: data.status,
+    payment_status: data.payment_status,
+    updated_at: data.updated_at,
+  };
+}
+
+// ============================================
+// HELPERS
+// ============================================
+
+function formatAddress(addr) {
+  if (!addr || typeof addr !== 'object') return '';
+  const parts = [
+    addr.full_name,
+    addr.address_line1,
+    addr.address_line2,
+    addr.city,
+    addr.state,
+    addr.country,
+    addr.postal_code,
+  ].filter(Boolean);
+  return parts.join(', ');
+}
+
+module.exports = {
+  // Existing (storefront)
+  createOrder,
+  getOrderById,
+  getUserOrders,
+  updatePaymentStatus,
+  // New (admin)
+  getAllOrders,
+  getOrderDetail,
+  updateOrderStatus,
+};
