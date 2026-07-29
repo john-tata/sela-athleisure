@@ -78,14 +78,33 @@ updateCartItem: (itemId: string, quantity: number) =>
     body: JSON.stringify({ quantity }),
   }),
 
-  // Orders
-  createOrder: (orderData: any) => fetchApi('/orders', { method: 'POST', body: JSON.stringify(orderData) }),
-  getOrders: () => fetchApi('/orders'),
+ // Orders
+createOrder: (orderData: any) =>
+  fetchApi('/orders', {
+    method: 'POST',
+    body: JSON.stringify(orderData),
+  }),
 
-  // Payments
-  initializePayment: (orderId: string) =>
-    fetchApi('/payments/initialize', { method: 'POST', body: JSON.stringify({ orderId }) }),
-  verifyPayment: (reference: string) => fetchApi(`/payments/verify/${reference}`),
+createGuestOrder: (orderData: any) =>
+  fetchApi('/orders/guest', {
+    method: 'POST',
+    body: JSON.stringify(orderData),
+  }),
+
+getOrders: () => fetchApi('/orders'),
+
+// Payments
+initializePayment: (orderId: string, email: string) =>
+  fetchApi('/payments/initialize', {
+    method: 'POST',
+    body: JSON.stringify({
+      orderId,
+      email,
+    }),
+  }),
+
+verifyPayment: (reference: string) =>
+  fetchApi(`/payments/verify/${reference}`),
 
   // Content
   getContent: (section: string) => fetchApi(`/content/${section}`),

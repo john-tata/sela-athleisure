@@ -7,6 +7,8 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { CustomCursor } from "@/components/CustomCursor";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { FloatingShopButton } from "@/components/FloatingShopButton";
+import { Checkout } from '@/pages/Checkout';
+
 
 import Footer from "@/sections/Footer";
 
@@ -35,6 +37,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/collections" element={<Collections />} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route
           path="/products/:slug"
           element={<ProductDetails />}

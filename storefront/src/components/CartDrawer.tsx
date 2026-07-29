@@ -1,9 +1,11 @@
 import { X, Plus, Minus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function CartDrawer() {
   const { items, subtotal, shipping, total, itemCount, isOpen, close, removeItem, updateQuantity, loadCart } = useCartStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isOpen) loadCart();
@@ -119,9 +121,15 @@ export function CartDrawer() {
                 </p>
               )}
             </div>
-            <button className="w-full mt-4 bg-[#111111] text-white font-body text-sm font-semibold uppercase tracking-wider py-3.5 hover:bg-[#C89A5A] transition-colors">
-              Checkout
-            </button>
+            <button
+  onClick={() => {
+    close();
+    navigate('/checkout');
+  }}
+  className="w-full mt-4 bg-[#111111] text-black py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-[#C89A5A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  Checkout
+</button>
           </div>
         )}
       </div>
