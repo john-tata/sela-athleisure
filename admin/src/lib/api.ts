@@ -48,6 +48,38 @@ export const orderApi = {
 
 // === Content ===
 export const contentApi = {
+  // Hero Slides
+  listSlides: () => api.get('/content/hero-slides'),
+  createSlide: (data: any) => api.post('/content/hero-slides', data),
+  updateSlide: (id: string, data: any) =>
+    api.patch(`/content/hero-slides/${id}`, data),
+  deleteSlide: (id: string) =>
+    api.delete(`/content/hero-slides/${id}`),
+
+  // Testimonials
+  listTestimonials: () => api.get('/content/testimonials'),
+  createTestimonial: (data: any) =>
+    api.post('/content/testimonials', data),
+  updateTestimonial: (id: string, data: any) =>
+    api.patch(`/content/testimonials/${id}`, data),
+  deleteTestimonial: (id: string) =>
+    api.delete(`/content/testimonials/${id}`),
+
+  // Lookbook
+  listLookbook: () => api.get('/content/lookbook'),
+  createLookbook: (data: any) =>
+    api.post('/content/lookbook', data),
+  updateLookbook: (id: string, data: any) =>
+    api.patch(`/content/lookbook/${id}`, data),
+  deleteLookbook: (id: string) =>
+    api.delete(`/content/lookbook/${id}`),
+
+  // Video Section
+  getSection: (sectionKey: string) =>
+    api.get(`/content/section/${sectionKey}`),
+
+  updateSection: (sectionKey: string, data: any) =>
+    api.patch(`/content/section/${sectionKey}`, data),
 };
 
   export const uploadApi = {
@@ -102,22 +134,28 @@ export const contentApi = {
 
     return data.data;
   },
+  video: async (file: File) => {
+  const token = localStorage.getItem("admin_token");
 
-  // Hero Slides
-  listSlides: () => api.get('/content/hero-slides'),
-  createSlide: (data: any) => api.post('/content/hero-slides', data),
-  updateSlide: (id: string, data: any) => api.patch(`/content/hero-slides/${id}`, data),
-  deleteSlide: (id: string) => api.delete(`/content/hero-slides/${id}`),
+  const formData = new FormData();
+  formData.append("video", file);
 
-  // Testimonials
-  listTestimonials: () => api.get('/content/testimonials'),
-  createTestimonial: (data: any) => api.post('/content/testimonials', data),
-  updateTestimonial: (id: string, data: any) => api.patch(`/content/testimonials/${id}`, data),
-  deleteTestimonial: (id: string) => api.delete(`/content/testimonials/${id}`),
+  const res = await fetch(`${API_URL}/uploads/video`, {
+    method: "POST",
+    headers: {
+      ...(token
+        ? { Authorization: `Bearer ${token}` }
+        : {}),
+    },
+    body: formData,
+  });
 
-  // Lookbook
-  listLookbook: () => api.get('/content/lookbook'),
-  createLookbook: (data: any) => api.post('/content/lookbook', data),
-  updateLookbook: (id: string, data: any) => api.patch(`/content/lookbook/${id}`, data),
-  deleteLookbook: (id: string) => api.delete(`/content/lookbook/${id}`),
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.message);
+  }
+
+  return data.data;
+},
 };

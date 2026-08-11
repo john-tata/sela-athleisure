@@ -12,26 +12,57 @@ async function createOrder({ userId, guestEmail, items, shippingAddress, billing
   const orderItems = [];
   
   for (const item of items) {
-    const { data: product } = await supabaseAdmin
-      .from('products')
-      .select('name, base_price, compare_price')
-      .eq('id', item.productId)
-      .single();
-    
-    if (!product) throw new AppError(`Product ${item.productId} not found`, 400, 'INVALID_PRODUCT');
-    
-    const price = product.compare_price || product.base_price;
-    subtotal += price * item.quantity;
-    
-    orderItems.push({
-      product_id: item.productId,
-      variant_id: item.variantId,
-      product_name: product.name,
-      variant_name: item.variantName || 'Default',
-      quantity: item.quantity,
-      unit_price: price,
-    });
+  const { data: product } = await supabaseAdmin
+    .from('products')
+    .select('name, base_price, compare_price')
+    .eq('id', item.productId)
+    .single();
+
+  if (!product) {
+    throw new AppError(`Product ${item.productId} not found`, 400, 'INVALID_PRODUCT');
   }
+
+  let variant = null;
+
+  if (item.variantId) {
+    const { data: variantData } = await supabaseAdmin
+      .from('product_variants')
+      .select('id, size, color, price_adjustment, stock_quantity')
+      .eq('id', item.variantId)
+      .single();
+
+    if (!variantData) {
+      throw new AppError('Invalid product variant', 400, 'INVALID_VARIANT');
+    }
+if (variant.stock_quantity < item.quantity) {
+    throw new AppError(
+        "Not enough stock",
+        400,
+        "OUT_OF_STOCK"
+    );
+}
+    variant = variantData;
+  }
+
+  let price = Number(product.base_price);
+
+  if (variant?.price_adjustment) {
+  price += Number(variant.price_adjustment);
+}
+
+  subtotal += price * item.quantity;
+
+  orderItems.push({
+    product_id: item.productId,
+    variant_id: variant?.id || null,
+    product_name: product.name,
+    variant_name: variant
+  ? `${variant.color ? variant.color + " / " : ""}${variant.size}`
+  : "Default",
+    quantity: item.quantity,
+    unit_price: price,
+  });
+}
 
   const shipping = subtotal > 50000 ? 0 : 3500;
   const total = subtotal + shipping;
@@ -152,7 +183,7 @@ async function getAllOrders({ status, limit = 50, offset = 0 } = {}) {
     items: (order.order_items || []).map(item => ({
       id: item.id,
       product_name: item.product_name,
-      variant_label: item.variant_name,
+      variant_label: item.variant_name || 'Default',
       quantity: item.quantity,
       unit_price: item.unit_price,
       total_price: item.unit_price * item.quantity,
@@ -192,7 +223,7 @@ async function getOrderDetail(orderId) {
     items: (order.order_items || []).map(item => ({
       id: item.id,
       product_name: item.product_name,
-      variant_label: item.variant_name,
+      variant_label: item.variant_name || 'Default',
       quantity: item.quantity,
       unit_price: item.unit_price,
       total_price: item.unit_price * item.quantity,
@@ -243,6 +274,59 @@ function formatAddress(addr) {
   return parts.join(', ');
 }
 
+async function reduceInventory(orderId) {
+  const { data: items, error } = await supabaseAdmin
+    .from('order_items')
+    .select('product_id, variant_id, quantity')
+    .eq('order_id', orderId);
+
+  if (error) {
+    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  }
+
+  for (const item of items) {
+    // Variant stock
+    if (item.variant_id) {
+      const { data: variant } = await supabaseAdmin
+        .from('product_variants')
+        .select('stock_quantity')
+        .eq('id', item.variant_id)
+        .single();
+
+      if (variant) {
+        await supabaseAdmin
+          .from('product_variants')
+          .update({
+            stock_quantity: Math.max(
+              0,
+              variant.stock_quantity - item.quantity
+            ),
+          })
+          .eq('id', item.variant_id);
+      }
+    }
+
+    // Product stock
+    const { data: product } = await supabaseAdmin
+      .from('products')
+      .select('inventory_quantity')
+      .eq('id', item.product_id)
+      .single();
+
+    if (product) {
+      await supabaseAdmin
+        .from('products')
+        .update({
+          inventory_quantity: Math.max(
+            0,
+            product.inventory_quantity - item.quantity
+          ),
+        })
+        .eq('id', item.product_id);
+    }
+  }
+}
+
 module.exports = {
   // Existing (storefront)
   createOrder,
@@ -253,4 +337,5 @@ module.exports = {
   getAllOrders,
   getOrderDetail,
   updateOrderStatus,
+  reduceInventory,
 };

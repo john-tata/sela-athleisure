@@ -2,7 +2,6 @@ import React from 'react';
 
 const quickLinks = [
   { label: 'New Arrivals', href: '/shop/new-arrivals' },
-  { label: 'Best Sellers', href: '/shop/best-sellers' },
   { label: 'Leggings', href: '/shop/leggings' },
   { label: 'Sports Bras', href: '/shop/sports-bras' },
   { label: 'Shorts', href: '/shop/shorts' },
@@ -12,7 +11,6 @@ const quickLinks = [
 const customerCare = [
   { label: 'Contact Us', href: '/contact' },
   { label: 'Shipping Info', href: '/shipping' },
-  { label: 'Returns & Exchanges', href: '/returns' },
   { label: 'Size Guide', href: '/size-guide' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'Track Order', href: '/track-order' },

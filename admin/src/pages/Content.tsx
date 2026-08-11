@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Image, Quote, Star } from 'lucide-react';
-import { contentApi } from '../lib/api';
+import { Plus, Pencil, Trash2, Image, Quote, Star, Video } from 'lucide-react';
+import { contentApi, uploadApi } from '../lib/api';
 import Modal from '../components/Modal';
 
 interface HeroSlide {
@@ -32,13 +32,24 @@ interface LookbookImage {
   is_active: boolean;
 }
 
-type Tab = 'hero' | 'testimonials' | 'lookbook';
+interface VideoContent {
+  id: string;
+  video_url: string;
+  title: string;
+  subtitle: string | null;
+  cta_text: string | null;
+  cta_link: string | null;
+  is_active: boolean;
+}
+
+type Tab = 'hero' | 'testimonials' | 'lookbook'| 'video';
 
 export default function Content() {
   const [activeTab, setActiveTab] = useState<Tab>('hero');
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [lookbook, setLookbook] = useState<LookbookImage[]>([]);
+  const [video, setVideo] = useState<VideoContent | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -49,29 +60,128 @@ export default function Content() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [videoContent, setVideoContent] = useState({
+  title: '',
+  subtitle: '',
+  video_url: '',
+  button_text: '',
+  button_link: '',
+});
+
   // Forms
   const [slideForm, setSlideForm] = useState({ title: '', subtitle: '', cta_text: 'Shop Now', cta_link: '/shop', image_url: '', sort_order: '0', is_active: true });
   const [testimonialForm, setTestimonialForm] = useState({ name: '', role: '', quote: '', avatar_url: '', rating: '5', is_active: true });
   const [lookbookForm, setLookbookForm] = useState({ title: '', image_url: '', sort_order: '0', is_active: true });
 
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [sRes, tRes, lRes] = await Promise.all([
-        contentApi.listSlides(),
-        contentApi.listTestimonials(),
-        contentApi.listLookbook(),
-      ]);
-      setSlides(sRes.slides || sRes.data || []);
-      setTestimonials(tRes.testimonials || tRes.data || []);
-      setLookbook(lRes.lookbook || lRes.data || []);
-    } catch (err) {
-      console.error('Failed to load content:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleImageUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>,
+  type: "hero" | "testimonial" | "lookbook"
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
+  try {
+    const uploaded = await uploadApi.image(file, type);
+
+    switch (type) {
+      case "hero":
+        setSlideForm(prev => ({
+          ...prev,
+          image_url: uploaded.url,
+        }));
+        break;
+
+      case "testimonial":
+        setTestimonialForm(prev => ({
+          ...prev,
+          avatar_url: uploaded.url,
+        }));
+        break;
+
+      case "lookbook":
+        setLookbookForm(prev => ({
+          ...prev,
+          image_url: uploaded.url,
+        }));
+        break;
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
+  }
+};
+
+const fetchAll = async () => {
+  setLoading(true);
+
+  try {
+    // Load video independently
+    try {
+      const sectionRes = await contentApi.getSection('video_section');
+
+      const section =
+        sectionRes.data?.section ??
+        sectionRes.section ??
+        sectionRes.data ??
+        null;
+
+      if (section) {
+        setVideoContent({
+          title: section.title ?? '',
+          subtitle: section.subtitle ?? '',
+          video_url: section.video_url ?? '',
+          button_text: section.button_text ?? '',
+          button_link: section.button_link ?? '',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load video section:', err);
+    }
+
+    // Load other content independently
+    try {
+      const sRes = await contentApi.listSlides();
+
+      setSlides(
+        sRes.data?.slides ??
+        sRes.slides ??
+        sRes.data ??
+        []
+      );
+    } catch (err) {
+      console.error('Failed to load hero slides:', err);
+    }
+
+    try {
+      const tRes = await contentApi.listTestimonials();
+
+      setTestimonials(
+        tRes.data?.testimonials ??
+        tRes.testimonials ??
+        tRes.data ??
+        []
+      );
+    } catch (err) {
+      console.error('Failed to load testimonials:', err);
+    }
+
+    try {
+      const lRes = await contentApi.listLookbook();
+
+      setLookbook(
+        lRes.data?.lookbook ??
+        lRes.lookbook ??
+        lRes.data ??
+        []
+      );
+    } catch (err) {
+      console.error('Failed to load lookbook:', err);
+    }
+
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     fetchAll();
   }, []);
@@ -80,6 +190,7 @@ export default function Content() {
     { key: 'hero', label: 'Hero Slides', icon: Image, count: slides.length },
     { key: 'testimonials', label: 'Testimonials', icon: Quote, count: testimonials.length },
     { key: 'lookbook', label: 'Lookbook', icon: Star, count: lookbook.length },
+    { key: 'video', label: 'Video', icon: Video, count: 1 },
   ];
 
   // ===== CREATE =====
@@ -97,6 +208,7 @@ export default function Content() {
     setError('');
     try {
       if (activeTab === 'hero') {
+        console.log("Slide form being sent:", slideForm);
         await contentApi.createSlide({ ...slideForm, sort_order: Number(slideForm.sort_order) });
       } else if (activeTab === 'testimonials') {
         await contentApi.createTestimonial({ ...testimonialForm, rating: Number(testimonialForm.rating) });
@@ -195,6 +307,88 @@ export default function Content() {
       ))}
     </div>
   );
+
+  const uploadHeroImage = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const uploaded = await uploadApi.image(file, "hero");
+
+    setSlideForm(prev => ({
+      ...prev,
+      image_url: uploaded.url,
+    }));
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
+  }
+};
+
+const uploadAvatar = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const uploaded = await uploadApi.image(file, "testimonials");
+
+    setTestimonialForm(prev => ({
+      ...prev,
+      avatar_url: uploaded.url,
+    }));
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
+  }
+};
+
+const uploadLookbookImage = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const uploaded = await uploadApi.image(file, "lookbook");
+
+    setLookbookForm(prev => ({
+      ...prev,
+      image_url: uploaded.url,
+    }));
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
+  }
+};
+
+const uploadVideo = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    setSaving(true);
+    setError('');
+
+    const uploaded = await uploadApi.video(file);
+
+    setVideoContent(prev => ({
+      ...prev,
+      video_url: uploaded.url,
+    }));
+
+  } catch (err: any) {
+    console.error('Video upload failed:', err);
+    setError(err.message || 'Video upload failed');
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <div className="space-y-6">
@@ -349,7 +543,132 @@ export default function Content() {
           )}
         </div>
       )}
+{/* VIDEO */}
+{activeTab === 'video' && (
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="mb-6">
+      <h3 className="text-lg font-semibold text-[#111111]">
+        Video Section
+      </h3>
+      <p className="text-sm text-gray-500 mt-1">
+        Manage the video section displayed on the storefront.
+      </p>
+    </div>
 
+    <div className="space-y-5">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Title
+        </label>
+        <input
+          value={videoContent.title}
+          onChange={e =>
+            setVideoContent({
+              ...videoContent,
+              title: e.target.value,
+            })
+          }
+          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Subtitle
+        </label>
+        <input
+          value={videoContent.subtitle}
+          onChange={e =>
+            setVideoContent({
+              ...videoContent,
+              subtitle: e.target.value,
+            })
+          }
+          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Video
+        </label>
+
+        <input
+  type="file"
+  accept="video/mp4,video/webm,video/ogg"
+  onChange={uploadVideo}
+  className="w-full"
+/>
+
+        {videoContent.video_url && (
+          <video
+            src={videoContent.video_url}
+            controls
+            className="mt-4 w-full max-h-80 rounded-lg bg-black"
+          />
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Button Text
+          </label>
+          <input
+            value={videoContent.button_text}
+            onChange={e =>
+              setVideoContent({
+                ...videoContent,
+                button_text: e.target.value,
+              })
+            }
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Button Link
+          </label>
+          <input
+            value={videoContent.button_link}
+            onChange={e =>
+              setVideoContent({
+                ...videoContent,
+                button_link: e.target.value,
+              })
+            }
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+          />
+        </div>
+      </div>
+
+      <button
+        onClick={async () => {
+  try {
+    setSaving(true);
+    setError('');
+
+    await contentApi.updateSection(
+      'video_section',
+      videoContent
+    );
+
+    alert('Video section saved');
+  } catch (err: any) {
+    console.error('Failed to save video section:', err);
+    setError(err.message || 'Failed to save video section');
+  } finally {
+    setSaving(false);
+  }
+}}
+        className="px-5 py-2.5 bg-[#111111] text-white text-sm font-medium rounded-lg hover:bg-[#333]"
+      >
+        Save Changes
+      </button>
+    </div>
+  </div>
+)}
       {/* ===== ADD MODAL ===== */}
       <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title={`Add ${activeTab === 'hero' ? 'Hero Slide' : activeTab === 'testimonials' ? 'Testimonial' : 'Lookbook Image'}`}>
         <form onSubmit={handleCreate} className="space-y-4">
@@ -376,8 +695,23 @@ export default function Content() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL *</label>
-                <input required value={slideForm.image_url} onChange={e => setSlideForm({ ...slideForm, image_url: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" placeholder="https://..." />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+Hero Image
+</label>
+
+<input
+type="file"
+accept="image/*"
+onChange={(e) => handleImageUpload(e, "hero")}
+className="w-full"
+/>
+
+{slideForm.image_url && (
+<img
+src={slideForm.image_url}
+className="mt-3 w-full h-40 rounded-lg object-cover"
+/>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
@@ -407,8 +741,23 @@ export default function Content() {
                 <textarea required rows={3} value={testimonialForm.quote} onChange={e => setTestimonialForm({ ...testimonialForm, quote: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A] resize-none" placeholder="The quality is amazing..." />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Avatar URL</label>
-                <input value={testimonialForm.avatar_url} onChange={e => setTestimonialForm({ ...testimonialForm, avatar_url: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" placeholder="https://..." />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+Avatar
+</label>
+
+<input
+type="file"
+accept="image/*"
+onChange={(e)=>handleImageUpload(e,"testimonial")}
+className="w-full"
+/>
+
+{testimonialForm.avatar_url && (
+<img
+src={testimonialForm.avatar_url}
+className="mt-3 w-20 h-20 rounded-full object-cover"
+/>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
@@ -430,8 +779,23 @@ export default function Content() {
                 <input value={lookbookForm.title} onChange={e => setLookbookForm({ ...lookbookForm, title: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" placeholder="Summer Vibes" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL *</label>
-                <input required value={lookbookForm.image_url} onChange={e => setLookbookForm({ ...lookbookForm, image_url: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" placeholder="https://..." />
+             <label className="block text-sm font-medium text-gray-700 mb-1">
+Lookbook Image
+</label>
+
+<input
+type="file"
+accept="image/*"
+onChange={(e)=>handleImageUpload(e,"lookbook")}
+className="w-full"
+/>
+
+{lookbookForm.image_url && (
+<img
+src={lookbookForm.image_url}
+className="mt-3 w-full h-40 rounded-lg object-cover"
+/>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
@@ -481,8 +845,23 @@ export default function Content() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL *</label>
-                <input required value={slideForm.image_url} onChange={e => setSlideForm({ ...slideForm, image_url: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+Lookbook Image
+</label>
+
+<input
+type="file"
+accept="image/*"
+onChange={(e)=>handleImageUpload(e,"lookbook")}
+className="w-full"
+/>
+
+{lookbookForm.image_url && (
+<img
+src={lookbookForm.image_url}
+className="mt-3 w-full h-40 rounded-lg object-cover"
+/>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
@@ -535,8 +914,23 @@ export default function Content() {
                 <input value={lookbookForm.title} onChange={e => setLookbookForm({ ...lookbookForm, title: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL *</label>
-                <input required value={lookbookForm.image_url} onChange={e => setLookbookForm({ ...lookbookForm, image_url: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+Lookbook Image
+</label>
+
+<input
+type="file"
+accept="image/*"
+onChange={(e)=>handleImageUpload(e,"lookbook")}
+className="w-full"
+/>
+
+{lookbookForm.image_url && (
+<img
+src={lookbookForm.image_url}
+className="mt-3 w-full h-40 rounded-lg object-cover"
+/>
+)}
               </div>
               <div className="flex items-center gap-4">
                 <div className="flex-1">

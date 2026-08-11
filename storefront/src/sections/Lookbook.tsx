@@ -17,8 +17,8 @@ export default function Lookbook() {
   useEffect(() => {
     api.getContent('lookbook')
       .then((res: any) => {
-        if (res.success) {
-          setImages(res.data || []);
+        if (res.status === "success") {
+          setImages(res.data.lookbook || []);
         } else {
           setImages([]);
         }

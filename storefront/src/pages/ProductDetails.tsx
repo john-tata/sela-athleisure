@@ -32,9 +32,8 @@ export default function ProductDetails() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
-const sizes = ["XS", "S", "M", "L", "XL"];
-
-const [selectedSize, setSelectedSize] = useState("M");
+  
+const [selectedVariant, setSelectedVariant] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
@@ -44,6 +43,9 @@ const [selectedSize, setSelectedSize] = useState("M");
         const res: any = await api.getProduct(slug);
 
         setProduct(res.data);
+        if (res.data.variants?.length) {
+    setSelectedVariant(res.data.variants[0]);
+}
       } finally {
         setLoading(false);
       }
@@ -55,7 +57,6 @@ const [selectedSize, setSelectedSize] = useState("M");
   if (loading) return <main className="max-w-7xl mx-auto p-10">Loading...</main>;
   if (!product) return <main className="max-w-7xl mx-auto p-10">Product not found.</main>;
 
-  const variantId = product.variants?.[0]?.id;
 
   return (
     <main className="max-w-7xl mx-auto px-4 pt-28 pb-12">
@@ -89,8 +90,18 @@ const [selectedSize, setSelectedSize] = useState("M");
         <div className="space-y-5">
 
   <ProductGallery
-  images={product.images}
-  productName={product.name}
+    images={
+        selectedVariant?.image_url
+            ? [
+                  {
+                      url: selectedVariant.image_url,
+                      is_primary: true,
+                  } as ProductImage,
+                  ...product.images,
+              ]
+            : product.images
+    }
+    productName={product.name}
 />
   
 </div>
@@ -109,34 +120,115 @@ const [selectedSize, setSelectedSize] = useState("M");
           </div>
 
           <p className="mt-8 leading-7 text-neutral-600">{product.description}</p>
-<div className="mt-10">
-  <div className="flex items-center justify-between mb-4">
-    <h3 className="text-sm font-semibold uppercase tracking-widest">
-      Select Size
-    </h3>
 
-    <button className="text-sm underline text-neutral-500 hover:text-black">
-      Size Guide
-    </button>
-  </div>
+{product.variants && product.variants.length > 0 && (
+  <>
+    {/* Size */}
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-medium">Size</span>
 
-  <div className="flex flex-wrap gap-3">
-    {sizes.map((size) => (
-      <button
-        key={size}
-        onClick={() => setSelectedSize(size)}
-        className={`w-10 h-10 rounded-xl border transition-all duration-200
-        ${
-          selectedSize === size
-            ? "bg-black text-white border-black"
-            : "bg-white border-neutral-300 hover:border-black"
-        }`}
-      >
-        {size}
-      </button>
-    ))}
-  </div>
-</div>
+        <button className="text-sm underline text-neutral-500 hover:text-black">
+          Size Guide
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        {[...new Set(product.variants.map((variant) => variant.size))]
+          .filter(Boolean)
+          .map((size) => {
+            const isSelected = selectedVariant?.size === size;
+
+            return (
+              <button
+                key={size}
+                onClick={() => {
+                  const matchingVariant = product.variants?.find(
+                    (variant) =>
+                      variant.size === size &&
+                      (!selectedVariant?.color ||
+                        variant.color === selectedVariant.color)
+                  );
+
+                  if (matchingVariant) {
+                    setSelectedVariant(matchingVariant);
+                  }
+                }}
+                className={`w-14 h-10 rounded-xl border transition ${
+                  isSelected
+                    ? "bg-black text-white border-black"
+                    : "border-neutral-300 hover:border-black"
+                }`}
+              >
+                {size}
+              </button>
+            );
+          })}
+      </div>
+    </div>
+
+    {/* Color */}
+    {[
+      ...new Map(
+        product.variants
+          .filter((variant) => variant.color)
+          .map((variant) => [variant.color, variant])
+      ).values(),
+    ].length > 0 && (
+      <div className="mb-6">
+        <span className="block text-sm font-medium mb-3">
+          Color
+        </span>
+
+        <div className="flex flex-wrap gap-3">
+          {[
+            ...new Map(
+              product.variants
+                .filter((variant) => variant.color)
+                .map((variant) => [variant.color, variant])
+            ).values(),
+          ].map((colorVariant) => {
+            const isSelected =
+              selectedVariant?.color === colorVariant.color;
+
+            return (
+              <button
+                key={colorVariant.color}
+                onClick={() => {
+                  const matchingVariant = product.variants?.find(
+                    (variant) =>
+                      variant.color === colorVariant.color &&
+                      (!selectedVariant?.size ||
+                        variant.size === selectedVariant.size)
+                  );
+
+                  if (matchingVariant) {
+                    setSelectedVariant(matchingVariant);
+                  }
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition ${
+                  isSelected
+                    ? "border-black ring-1 ring-black"
+                    : "border-neutral-300 hover:border-black"
+                }`}
+              >
+                <span
+                  className="w-4 h-4 rounded-full border border-neutral-300"
+                  style={{
+                    backgroundColor:
+                      colorVariant.color_hex || "#000000",
+                  }}
+                />
+
+                {colorVariant.color}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    )}
+  </>
+)}
          <div className="mt-10 flex items-center gap-4">
 
   <div className="flex items-center overflow-hidden rounded-xl border">
@@ -169,13 +261,13 @@ onClick={async () => {
 
   console.log({
     productId: product.id,
-    variantId,
+    variantId: selectedVariant?.id,
     quantity: qty,
   });
 
   await addItem({
     productId: product.id,
-    variantId,
+    variantId: product.variants?.length > 0 ? selectedVariant?.id : undefined,
     quantity: qty,
   });
 }}
@@ -239,7 +331,7 @@ active:scale-100
     </div>
     
   </div>
-
+console.log(res.data.variants);
 </div>
 
         </div>

@@ -301,6 +301,31 @@ async function deleteLookbookImage(id) {
   return { deleted: true, id: data.id };
 }
 
+async function getSection(sectionKey) {
+  const { data, error } = await supabaseAdmin
+    .from("site_content")
+    .select("*")
+    .eq("section_key", sectionKey)
+    .single();
+
+  if (error) throw new AppError(error.message, 500, "DATABASE_ERROR");
+
+  return data;
+}
+
+async function updateSection(sectionKey, payload) {
+  const { data, error } = await supabaseAdmin
+    .from("site_content")
+    .update(payload)
+    .eq("section_key", sectionKey)
+    .select()
+    .single();
+
+  if (error) throw new AppError(error.message, 500, "DATABASE_ERROR");
+
+  return data;
+}
+
 module.exports = {
   // Existing (storefront)
   getHeroSlides,
@@ -318,4 +343,7 @@ module.exports = {
   createLookbookImage,
   updateLookbookImage,
   deleteLookbookImage,
+//new (admin) — Uploads
+  getSection,
+  updateSection,
 };

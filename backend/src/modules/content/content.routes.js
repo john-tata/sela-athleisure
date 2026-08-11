@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const contentService = require('./content.service');
 const catchAsync = require('../../utils/catchAsync');
-
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 // ============================================
 // PUBLIC: Storefront endpoints (PRESERVED)
 // ============================================
@@ -22,21 +22,49 @@ router.get('/lookbook', catchAsync(async (req, res) => {
   res.json({ status: 'success', data: { lookbook, total: lookbook.length } });
 }));
 
+router.get(
+  "/section/:key",
+  catchAsync(async (req, res) => {
+    const section = await contentService.getSection(req.params.key);
+
+    res.json({
+      status: "success",
+      data: section,
+    });
+  })
+);
+
+router.patch(
+  "/section/:key",
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const section = await contentService.updateSection(
+      req.params.key,
+      req.body
+    );
+
+    res.json({
+      status: "success",
+      data: section,
+    });
+  })
+);
 // ============================================
 // ADMIN: Hero Slides CRUD (NEW)
 // ============================================
 
-router.post('/hero-slides', catchAsync(async (req, res) => {
+router.post('/hero-slides', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const slide = await contentService.createHeroSlide(req.body);
   res.status(201).json({ status: 'success', data: slide });
 }));
 
-router.patch('/hero-slides/:id', catchAsync(async (req, res) => {
+router.patch('/hero-slides/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const slide = await contentService.updateHeroSlide(req.params.id, req.body);
   res.json({ status: 'success', data: slide });
 }));
 
-router.delete('/hero-slides/:id', catchAsync(async (req, res) => {
+router.delete('/hero-slides/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const result = await contentService.deleteHeroSlide(req.params.id);
   res.json({ status: 'success', data: result });
 }));
@@ -45,17 +73,17 @@ router.delete('/hero-slides/:id', catchAsync(async (req, res) => {
 // ADMIN: Testimonials CRUD (NEW)
 // ============================================
 
-router.post('/testimonials', catchAsync(async (req, res) => {
+router.post('/testimonials', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const testimonial = await contentService.createTestimonial(req.body);
   res.status(201).json({ status: 'success', data: testimonial });
 }));
 
-router.patch('/testimonials/:id', catchAsync(async (req, res) => {
+router.patch('/testimonials/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const testimonial = await contentService.updateTestimonial(req.params.id, req.body);
   res.json({ status: 'success', data: testimonial });
 }));
 
-router.delete('/testimonials/:id', catchAsync(async (req, res) => {
+router.delete('/testimonials/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const result = await contentService.deleteTestimonial(req.params.id);
   res.json({ status: 'success', data: result });
 }));
@@ -64,17 +92,17 @@ router.delete('/testimonials/:id', catchAsync(async (req, res) => {
 // ADMIN: Lookbook CRUD (NEW)
 // ============================================
 
-router.post('/lookbook', catchAsync(async (req, res) => {
+router.post('/lookbook', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const image = await contentService.createLookbookImage(req.body);
   res.status(201).json({ status: 'success', data: image });
 }));
 
-router.patch('/lookbook/:id', catchAsync(async (req, res) => {
+router.patch('/lookbook/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const image = await contentService.updateLookbookImage(req.params.id, req.body);
   res.json({ status: 'success', data: image });
 }));
 
-router.delete('/lookbook/:id', catchAsync(async (req, res) => {
+router.delete('/lookbook/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const result = await contentService.deleteLookbookImage(req.params.id);
   res.json({ status: 'success', data: result });
 }));

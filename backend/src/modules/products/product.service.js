@@ -9,10 +9,16 @@ async function getProducts({ category, limit = 20, offset = 0, sort = 'newest' }
   let query = supabaseAdmin
     .from('products')
     .select(`
-      *,
-      categories(name, slug),
-      product_images(*)
-    `)
+  *,
+  categories(name, slug),
+  product_images(
+    id,
+    url,
+    is_primary,
+    sort_order,
+    alt_text
+  )
+`)
     .eq('is_active', true);
 
   if (category) {
@@ -77,7 +83,7 @@ async function searchProducts(query, { limit = 20, offset = 0 }) {
 // ============================================
 
 async function createProduct(productData) {
-  const { images, ...productFields } = productData;
+  const { images, variants =[], ...productFields } = productData;
 
   // 1. Insert product
   const { data: product, error } = await supabaseAdmin
@@ -101,35 +107,54 @@ async function createProduct(productData) {
   // 2. Insert images if provided
   if (images && images.length > 0) {
     const imageRows = images.map((img, i) => ({
-  product_id: product.id,
-
-  // Accept either a string or an object
-  url: typeof img === "string" ? img : img.url,
-
-  is_primary:
-    typeof img === "string"
-      ? i === 0
-      : (img.is_primary ?? i === 0),
-
-  sort_order:
-    typeof img === "string"
-      ? i
-      : (img.sort_order ?? i),
-
-  alt_text:
-    typeof img === "string"
-      ? productFields.name
-      : (img.alt_text || productFields.name),
-}));
+      product_id: product.id,
+      // Accept either a string or an object
+      url: typeof img === 'string' ? img : img.url,
+      is_primary:
+        typeof img === 'string'
+          ? i === 0
+          : (img.is_primary ?? i === 0),
+      sort_order:
+        typeof img === 'string'
+          ? i
+          : (img.sort_order ?? i),
+      alt_text:
+        typeof img === 'string'
+          ? productFields.name
+          : (img.alt_text || productFields.name),
+    }));
 
     const { error: imgError } = await supabaseAdmin
       .from('product_images')
       .insert(imageRows);
 
     if (imgError) {
-  console.error(imgError);
-  throw imgError;
-}
+      console.error(imgError);
+      throw imgError;
+    }
+  }
+
+  if (variants && variants.length > 0) {
+    const variantRows = variants.map(v => ({
+      product_id: product.id,
+      sku: v.sku,
+      size: v.size,
+      color: v.color,
+      color_hex: v.color_hex,
+      stock_quantity: v.stock_quantity,
+      price_adjustment: v.price_adjustment,
+      image_url: v.image_url || null,
+      is_active: true,
+    }));
+
+    const { error: variantError } = await supabaseAdmin
+      .from('product_variants')
+      .insert(variantRows);
+
+    if (variantError) {
+      console.error(variantError);
+      throw new AppError(variantError.message, 500, 'DATABASE_ERROR');
+    }
   }
 
   // 3. Return product with images
@@ -137,7 +162,7 @@ async function createProduct(productData) {
 }
 
 async function updateProduct(slug, updateData) {
-  const { images, ...productFields } = updateData;
+  const { images, variants = [], ...productFields } = updateData;
 
   // 1. Get current product
   const { data: current } = await supabaseAdmin
@@ -200,7 +225,115 @@ async function updateProduct(slug, updateData) {
       if (imgError) console.error('Failed to insert images:', imgError.message);
     }
   }
+// ============================================
+// 3. UPDATE VARIANTS
+// ============================================
 
+if (Array.isArray(variants)) {
+  // Get every existing variant for this product
+  const { data: existingVariants, error: existingError } =
+    await supabaseAdmin
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', current.id);
+
+  if (existingError) {
+    throw new AppError(
+      existingError.message,
+      500,
+      'DATABASE_ERROR'
+    );
+  }
+
+  const existingById = new Map(
+    (existingVariants || []).map(v => [v.id, v])
+  );
+
+  const incomingIds = new Set();
+
+  // --------------------------------------------
+  // UPDATE existing / CREATE new
+  // --------------------------------------------
+
+  for (const v of variants) {
+    const variantData = {
+      sku: v.sku ?? '',
+      size: v.size ?? '',
+      color: v.color ?? '',
+      color_hex: v.color_hex ?? null,
+      stock_quantity: v.stock_quantity ?? 0,
+      price_adjustment: v.price_adjustment ?? 0,
+      image_url: v.image_url ?? null,
+      is_active: v.is_active ?? true,
+    };
+
+    // Existing variant
+    if (v.id && existingById.has(v.id)) {
+      incomingIds.add(v.id);
+
+      const { error: updateError } = await supabaseAdmin
+        .from('product_variants')
+        .update(variantData)
+        .eq('id', v.id)
+        .eq('product_id', current.id);
+
+      if (updateError) {
+        throw new AppError(
+          updateError.message,
+          500,
+          'DATABASE_ERROR'
+        );
+      }
+    }
+
+    // New variant
+    else {
+      const { data: newVariant, error: insertError } =
+        await supabaseAdmin
+          .from('product_variants')
+          .insert({
+            product_id: current.id,
+            ...variantData,
+          })
+          .select()
+          .single();
+
+      if (insertError) {
+        throw new AppError(
+          insertError.message,
+          500,
+          'DATABASE_ERROR'
+        );
+      }
+
+      incomingIds.add(newVariant.id);
+    }
+  }
+
+  // --------------------------------------------
+  // DEACTIVATE variants removed from the UI
+  // --------------------------------------------
+
+  for (const existing of existingVariants || []) {
+    if (!incomingIds.has(existing.id) && existing.is_active) {
+      const { error: deactivateError } = await supabaseAdmin
+        .from('product_variants')
+        .update({
+          is_active: false,
+        })
+        .eq('id', existing.id)
+        .eq('product_id', current.id);
+
+      if (deactivateError) {
+        throw new AppError(
+          deactivateError.message,
+          500,
+          'DATABASE_ERROR'
+        );
+      }
+    }
+  }
+}
   // 4. Return updated product
   const finalSlug = payload.slug || current.slug;
   return getProductBySlug(finalSlug);
@@ -232,6 +365,7 @@ function normalizeProduct(p) {
     description: p.description,
     base_price: p.base_price,
     compare_price: p.compare_price,
+    inventory_quantity: p.inventory_quantity,
     category_id: p.category_id,
     category_name: p.categories?.name || null,
     category_slug: p.categories?.slug || null,
@@ -246,11 +380,19 @@ function normalizeProduct(p) {
       sort_order: img.sort_order,
       alt_text: img.alt_text,
     })),
-    variants: (p.product_variants || []).map(v => ({
-      id: v.id, sku: v.sku, size: v.size, color: v.color,
-      color_hex: v.color_hex, stock_quantity: v.stock_quantity,
-      price_adjustment: v.price_adjustment, image_url: v.image_url,
-    })),
+    variants: (p.product_variants || [])
+  .filter(v => v.is_active !== false)
+  .map(v => ({
+    id: v.id,
+    sku: v.sku,
+    size: v.size,
+    color: v.color,
+    color_hex: v.color_hex,
+    stock_quantity: v.stock_quantity,
+    price_adjustment: v.price_adjustment,
+    image_url: v.image_url,
+    is_active: v.is_active,
+  })),
   };
 }
 

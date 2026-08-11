@@ -7,7 +7,6 @@ import WhySela from '@/sections/WhySela';
 import Lookbook from '@/sections/Lookbook';
 import VideoSection from '@/sections/VideoSection';
 import Testimonials from '@/sections/Testimonials';
-import InstagramFeed from '@/sections/InstagramFeed';
 import Newsletter from '@/sections/Newsletter';
 
 export default function Home() {
@@ -22,7 +21,6 @@ export default function Home() {
       <Lookbook />
       <VideoSection />
       <Testimonials />
-      <InstagramFeed />
       <Newsletter />
     </main>
   );

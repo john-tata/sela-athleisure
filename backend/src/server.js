@@ -5,7 +5,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
-
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -16,9 +15,10 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 
 const allowedOrigins = [
-  'http://localhost:5173', // Vite dev storefront
-  'http://localhost:4173', // Vite production preview
-  'http://localhost:5174', // Admin dashboard
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'http://localhost:5174',
+  'http://localhost:5175',
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL,
 ].filter(Boolean);
@@ -87,7 +87,8 @@ const orderRoutes = require('./modules/orders/order.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
 const contentRoutes = require('./modules/content/content.routes');
 const uploadRoutes = require('./modules/uploads/upload.routes');
-
+const authRoutes = require('./modules/auth/auth.routes');
+const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -104,6 +105,9 @@ app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/content', contentRoutes);
 app.use('/api/v1/uploads', uploadRoutes);
+
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 // ==========================================
 // 404 HANDLER

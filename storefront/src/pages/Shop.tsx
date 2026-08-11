@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { ProductCard } from '@/components/ProductCard';
 import { api } from '@/lib/api';
 
@@ -39,6 +39,7 @@ const categoryOptions = [
 ];
 
 export function Shop() {
+  const { slug } = useParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,7 +54,9 @@ export function Shop() {
   // Supports:
   // /shop?category=sets
   // /shop?category=sets,leggings
-  const selectedCategories = urlCategory
+  const selectedCategories = slug
+  ? [slug]
+  : urlCategory
     ? urlCategory.split(',').filter(Boolean)
     : [];
 
@@ -136,7 +139,7 @@ export function Shop() {
     }
 
     return result;
-  }, [products, sort, urlCategory]);
+  }, [products, sort, urlCategory, slug]);
 
   /*
    * CATEGORY FILTER TOGGLE
@@ -195,22 +198,37 @@ export function Shop() {
     setSearchParams(nextParams);
   };
 
+  const collectionNames: Record<string, string> = {
+  'sports-bras': 'Sports Bras',
+  leggings: 'Leggings',
+  shorts: 'Shorts',
+  sets: 'Sets',
+  accessories: 'Accessories',
+};
+
   return (
     <main className="min-h-screen bg-white pt-[60px] lg:pt-[72px]">
 
       {/* SHOP HEADER */}
+      
       <section className="px-4 sm:px-6 lg:px-12 py-12 lg:py-20 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
 
           <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-rich-black">
-            {isNewArrivals ? 'New Arrivals' : 'Shop'}
-          </h1>
+  {slug
+    ? collectionNames[slug] || 'Collection'
+    : isNewArrivals
+      ? 'New Arrivals'
+      : 'Shop'}
+</h1>
 
           <p className="font-body text-sm text-cool-gray mt-4 max-w-xl">
-            {isNewArrivals
-              ? 'Discover the latest pieces from SELA.'
-              : 'Explore the SELA collection.'}
-          </p>
+  {slug
+    ? `Explore our ${collectionNames[slug]?.toLowerCase() || 'collection'} collection.`
+    : isNewArrivals
+      ? 'Discover the latest pieces from SELA.'
+      : 'Explore the SELA collection.'}
+</p>
 
         </div>
       </section>

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const productService = require('./product.service');
 const catchAsync = require('../../utils/catchAsync');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 
 // ============================================
 // PUBLIC: Storefront endpoints (PRESERVED)
@@ -39,21 +40,39 @@ router.get('/:slug', catchAsync(async (req, res) => {
 // ============================================
 
 // POST /api/v1/products — create product
-router.post('/', catchAsync(async (req, res) => {
-  const product = await productService.createProduct(req.body);
-  res.status(201).json({ status: 'success', data: product });
-}));
+router.post(
+  '/',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const product = await productService.createProduct(req.body);
+    res.status(201).json({ status: 'success', data: product });
+  })
+);
 
-// PATCH /api/v1/products/:slug — update product
-router.patch('/:slug', catchAsync(async (req, res) => {
-  const product = await productService.updateProduct(req.params.slug, req.body);
-  res.json({ status: 'success', data: product });
-}));
+router.patch(
+  '/:slug',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const product = await productService.updateProduct(
+      req.params.slug,
+      req.body
+    );
 
-// DELETE /api/v1/products/:slug — delete product
-router.delete('/:slug', catchAsync(async (req, res) => {
-  const result = await productService.deleteProduct(req.params.slug);
-  res.json({ status: 'success', data: result });
-}));
+    res.json({ status: 'success', data: product });
+  })
+);
+
+router.delete(
+  '/:slug',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const result = await productService.deleteProduct(req.params.slug);
+
+    res.json({ status: 'success', data: result });
+  })
+);
 
 module.exports = router;

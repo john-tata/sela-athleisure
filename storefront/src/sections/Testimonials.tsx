@@ -9,10 +9,11 @@ import 'swiper/css/pagination';
 
 interface Testimonial {
   id: string;
-  customer_name: string;
-  customer_photo: string | null;
+  name: string;
+  avatar_url: string | null;
   rating: number;
-  review_text: string;
+  quote: string;
+  role?: string | null;
   is_verified?: boolean;
 }
 
@@ -23,8 +24,8 @@ export default function Testimonials() {
   useEffect(() => {
     api.getContent('testimonials')
       .then((res: any) => {
-        if (res.success) {
-          setTestimonials(res.data || []);
+        if (res.status === "success") {
+          setTestimonials(res.data.testimonials || []);
         } else {
           setTestimonials([]);
         }

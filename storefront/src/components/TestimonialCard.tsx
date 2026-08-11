@@ -3,10 +3,11 @@ import { Star, BadgeCheck } from "lucide-react";
 interface TestimonialCardProps {
   testimonial: {
     id: string;
-    customer_name: string;
-    customer_photo: string | null;
+    name: string;
+    avatar_url: string | null;
     rating: number;
-    review_text: string;
+    quote: string;
+    role?: string | null;
     is_verified?: boolean;
   };
 }
@@ -30,29 +31,29 @@ export function TestimonialCard({ testimonial }: TestimonialCardProps) {
 
       {/* Review Text */}
       <p className="mt-4 font-body text-sm leading-relaxed text-rich-black">
-        &ldquo;{testimonial.review_text}&rdquo;
+        &ldquo;{testimonial.quote}&rdquo;
       </p>
 
       {/* Customer Info */}
       <div className="mt-5 flex items-center gap-3">
-        {testimonial.customer_photo ? (
+        {testimonial.avatar_url ? (
           <img
-            src={testimonial.customer_photo}
-            alt={testimonial.customer_name}
+            src={testimonial.avatar_url}
+            alt={testimonial.name}
             className="h-11 w-11 rounded-full object-cover"
             loading="lazy"
           />
         ) : (
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-light-gray">
             <span className="font-body text-sm font-medium uppercase text-cool-gray">
-              {testimonial.customer_name.charAt(0)}
+              {testimonial.name.charAt(0)}
             </span>
           </div>
         )}
 
         <div>
           <p className="font-body text-sm font-semibold text-rich-black">
-            {testimonial.customer_name}
+            {testimonial.name}
           </p>
           {testimonial.is_verified && (
             <div className="mt-0.5 flex items-center gap-1">

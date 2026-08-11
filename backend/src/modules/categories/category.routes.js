@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const categoryService = require('./category.service');
 const catchAsync = require('../../utils/catchAsync');
-
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 // ============================================
 // PUBLIC: Storefront endpoints (PRESERVED)
 // ============================================
@@ -24,19 +24,21 @@ router.get('/:slug', catchAsync(async (req, res) => {
 // ============================================
 
 // POST /api/v1/categories — create category
-router.post('/', catchAsync(async (req, res) => {
+router.post('/', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const category = await categoryService.createCategory(req.body);
   res.status(201).json({ status: 'success', data: category });
 }));
 
-// PATCH /api/v1/categories/:id — update category
-router.patch('/:id', catchAsync(async (req, res) => {
-  const category = await categoryService.updateCategory(req.params.id, req.body);
+router.patch('/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
+  const category = await categoryService.updateCategory(
+    req.params.id,
+    req.body
+  );
+
   res.json({ status: 'success', data: category });
 }));
 
-// DELETE /api/v1/categories/:id — delete category
-router.delete('/:id', catchAsync(async (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, catchAsync(async (req, res) => {
   const result = await categoryService.deleteCategory(req.params.id);
   res.json({ status: 'success', data: result });
 }));

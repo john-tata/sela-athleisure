@@ -44,12 +44,22 @@ export default function Orders() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState("");
+  
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
       const res = await orderApi.list();
-      setOrders(res.orders || res.data || []);
+      setOrders(
+  Array.isArray(res.orders)
+    ? res.orders
+    : Array.isArray(res.data?.orders)
+      ? res.data.orders
+      : Array.isArray(res.data)
+        ? res.data
+        : []
+);
     } catch (err) {
       console.error('Failed to load orders:', err);
     } finally {
@@ -93,10 +103,27 @@ export default function Orders() {
     }
   };
 
-  const filteredOrders = filter === 'all'
-    ? orders
-    : orders.filter(o => o.status === filter);
+const filteredOrders = orders.filter(order => {
 
+const matchesStatus =
+filter === "all" || order.status === filter;
+ const q = search.toLowerCase();
+const matchesSearch =
+(order.order_number || "")
+.toLowerCase()
+.includes(search.toLowerCase()) ||
+
+(order.customer_name || "")
+.toLowerCase()
+.includes(search.toLowerCase()) ||
+
+(order.customer_email || "")
+.toLowerCase()
+.includes(search.toLowerCase());
+
+return matchesStatus && matchesSearch;
+
+});
   const StatusBadge = ({ status }: { status: string }) => {
     const config = statusConfig[status] || statusConfig.pending;
     return (
@@ -109,22 +136,67 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
-      {/* Filter tabs */}
-      <div className="flex items-center gap-2">
-        {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${
-              filter === s
-                ? 'bg-[#111111] text-white'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+
+<div className="grid grid-cols-4 gap-4">
+
+<div className="bg-white rounded-xl p-5 border">
+<h2 className="text-gray-500 text-sm">Orders</h2>
+<p className="text-3xl font-bold">{orders.length}</p>
+</div>
+
+<div className="bg-white rounded-xl p-5 border">
+<h2 className="text-gray-500 text-sm">Pending</h2>
+<p className="text-3xl font-bold">
+{orders.filter(o=>o.status==="pending").length}
+</p>
+</div>
+
+<div className="bg-white rounded-xl p-5 border">
+<h2 className="text-gray-500 text-sm">Delivered</h2>
+<p className="text-3xl font-bold">
+{orders.filter(o=>o.status==="delivered").length}
+</p>
+</div>
+
+<div className="bg-white rounded-xl p-5 border">
+<h2 className="text-gray-500 text-sm">Revenue</h2>
+<p className="text-3xl font-bold">
+₦{orders
+.filter(o=>o.payment_status==="paid")
+.reduce((a,b)=>a+Number(b.total_amount),0)
+.toLocaleString()}
+</p>
+</div>
+
+</div>
+
+<div className="flex justify-between items-center">
+
+<input
+type="text"
+placeholder="Search orders..."
+value={search}
+onChange={(e)=>setSearch(e.target.value)}
+className="w-72 px-4 py-2 border rounded-lg"
+/>
+
+<div className="flex gap-2">
+  {['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((s) => (
+    <button
+      key={s}
+      onClick={() => setFilter(s)}
+      className={`px-3 py-2 rounded-lg text-sm capitalize transition ${
+        filter === s
+          ? 'bg-[#111111] text-white'
+          : 'bg-gray-100 hover:bg-gray-200'
+      }`}
+    >
+      {s}
+    </button>
+  ))}
+</div>
+
+</div>
 
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -136,14 +208,15 @@ export default function Orders() {
               <th className="text-left px-6 py-3.5 font-medium text-gray-500">Amount</th>
               <th className="text-left px-6 py-3.5 font-medium text-gray-500">Status</th>
               <th className="text-left px-6 py-3.5 font-medium text-gray-500">Payment</th>
+              <th className="text-left px-6 py-3.5 font-medium text-gray-500">Date</th>
               <th className="text-right px-6 py-3.5 font-medium text-gray-500">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">Loading...</td></tr>
             ) : filteredOrders.length === 0 ? (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">No orders found</td></tr>
+              <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">No orders found</td></tr>
             ) : filteredOrders.map((order) => (
               <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-6 py-4">
@@ -163,18 +236,24 @@ export default function Orders() {
                   <StatusBadge status={order.status} />
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium capitalize ${
-                    order.payment_status === 'paid'
-                      ? 'bg-green-50 text-green-700'
-                      : order.payment_status === 'failed'
-                      ? 'bg-red-50 text-red-700'
-                      : 'bg-amber-50 text-amber-700'
-                  }`}>
-                    {order.payment_status}
-                  </span>
+                  <span
+className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+order.payment_status === "paid"
+? "bg-green-100 text-green-700"
+: order.payment_status === "pending"
+? "bg-yellow-100 text-yellow-700"
+: "bg-red-100 text-red-700"
+}`}
+>
+{order.payment_status}
+</span>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
+                <td className="px-6 py-4 text-gray-600">
+  {new Date(order.created_at).toLocaleDateString()}
+</td>
+
+<td className="px-6 py-4">
+  <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => openDetail(order)}
                       className="p-2 text-gray-400 hover:text-[#C89A5A] hover:bg-[#C89A5A]/10 rounded-lg transition-colors"

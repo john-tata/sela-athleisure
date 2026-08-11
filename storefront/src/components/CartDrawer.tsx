@@ -126,7 +126,7 @@ export function CartDrawer() {
     close();
     navigate('/checkout');
   }}
-  className="w-full mt-4 bg-[#111111] text-black py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-[#C89A5A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+  className="w-full mt-4 bg-[#111111] text-white py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-[#C89A5A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 >
   Checkout
 </button>

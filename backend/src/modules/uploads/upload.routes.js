@@ -5,7 +5,7 @@ const { z } = require('zod');
 const { supabaseAdmin } = require('../../config/supabase');
 const validate = require('../../middleware/validate');
 const AppError = require('../../utils/AppError');
-
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Helper: upload buffer to Supabase Storage
@@ -27,7 +27,8 @@ async function uploadToStorage(buffer, filename, mimetype, folder = 'uploads') {
 }
 
 // POST /api/v1/uploads/image - direct image upload
-router.post('/image', upload.single('image'), async (req, res, next) => {
+router.post('/image', requireAuth,
+  requireAdmin, upload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) throw new AppError('No image file provided', 400, 'VALIDATION_ERROR');
 
@@ -40,8 +41,43 @@ router.post('/image', upload.single('image'), async (req, res, next) => {
   }
 });
 
+// POST /api/v1/uploads/video - direct video upload
+router.post(
+  "/video",
+  requireAuth,
+  requireAdmin,
+  upload.single("video"),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        throw new AppError(
+          "No video provided",
+          400,
+          "VALIDATION_ERROR"
+        );
+      }
+
+      validateVideo(req.file);
+
+      const result = await uploadToStorage(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        "videos"
+      );
+
+      res.json({
+        status: "success",
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // POST /api/v1/uploads/images - upload multiple images
-router.post('/images', upload.array('images', 10), async (req, res, next) => {
+router.post('/images', requireAuth, requireAdmin, upload.array('images', 10), async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {
       throw new AppError('No image files provided', 400, 'VALIDATION_ERROR');
@@ -61,8 +97,28 @@ router.post('/images', upload.array('images', 10), async (req, res, next) => {
   }
 });
 
+function validateVideo(file) {
+  if (!file.mimetype.startsWith("video/")) {
+    throw new AppError(
+      "Only video files are allowed",
+      400,
+      "VALIDATION_ERROR"
+    );
+  }
+
+  const maxSize = 100 * 1024 * 1024; //100MB
+
+  if (file.size > maxSize) {
+    throw new AppError(
+      "Video must be under 100MB",
+      400,
+      "VALIDATION_ERROR"
+    );
+  }
+}
+
 // DELETE /api/v1/uploads/image - delete from storage by path
-router.delete('/image', async (req, res, next) => {
+router.delete('/image', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { path } = req.body;
     if (!path) throw new AppError('Storage path is required', 400, 'VALIDATION_ERROR');
@@ -85,7 +141,7 @@ const presignedSchema = z.object({
   contentType: z.string().min(1),
 });
 
-router.post('/presigned', validate(presignedSchema), async (req, res, next) => {
+router.post('/presigned', requireAuth, requireAdmin, validate(presignedSchema), async (req, res, next) => {
   try {
     const { bucket, path, contentType } = req.body;
     const { data, error } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path);

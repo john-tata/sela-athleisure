@@ -4,7 +4,27 @@ import { productApi, categoryApi } from '../lib/api';
 import Modal from '../components/Modal';
 import MultiImageUpload from "../components/MultiImageUpload";
 
+interface ProductImage {
+  id?: string;
+  url: string;
+  is_primary?: boolean;
+  sort_order?: number;
+  alt_text?: string;
+}
+interface ProductVariant {
+    id?: string;
+    sku: string;
+    size: string;
+    color: string;
+    color_hex: string;
+    stock_quantity: number;
+    price_adjustment: number;
+    image_url?: string;
+}
+
 interface Product {
+  id: string;
+  images: ProductImage[];
   slug: string;
   name: string;
   description: string;
@@ -16,6 +36,7 @@ interface Product {
   is_active: boolean;
   is_featured: boolean;
   created_at: string;
+  variants?: ProductVariant[];
 }
 
 interface Category {
@@ -34,7 +55,7 @@ const emptyForm = {
   is_active: true,
   is_featured: false,
   images: [] as string[],
-  variants: [] as any[],
+  variants: [] as ProductVariant[],
 };
 
 export default function Products() {
@@ -43,6 +64,19 @@ export default function Products() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const [hasVariants, setHasVariants] = useState(false);
+
+  const [variants, setVariants] = useState<ProductVariant[]>([
+    {
+      sku: "",
+      size: "",
+      color: "",
+      color_hex: "#000000",
+      stock_quantity: 0,
+      price_adjustment: 0,
+      image_url: "",
+    },
+  ]);
   // Modal states
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -85,29 +119,49 @@ setProducts(res.data?.products || []);
   };
 
   const openAdd = () => {
-    setForm({ ...emptyForm });
-    setError('');
+    setForm({...emptyForm});
+    setVariants([
+        {
+            sku:"",
+            size:"",
+            color:"",
+            color_hex:"#000000",
+            stock_quantity:0,
+            price_adjustment:0,
+            image_url:""
+        }
+    ]);
+    setHasVariants(false);
+    setError("");
     setIsAddOpen(true);
-  };
+}
 
-  const openEdit = (product: Product) => {
-    setSelectedProduct(product);
-    setForm({
-      name: product.name,
-      slug: product.slug,
-      description: product.description || '',
-      base_price: String(product.base_price),
-      compare_price: product.compare_price ? String(product.compare_price) : '',
-      category_id: product.category_id || '',
-      inventory_quantity: String(product.inventory_quantity || 0),
-      is_active: product.is_active,
-      is_featured: product.is_featured,
-      images: [],
-      variants: [],
-    });
-    setError('');
-    setIsEditOpen(true);
-  };
+  const openEdit = async (product: Product) => {
+  const res = await productApi.get(product.slug);
+  const fullProduct = res.data;
+setVariants(fullProduct.variants || []);
+setHasVariants((fullProduct.variants || []).length > 0);
+  setSelectedProduct(fullProduct);
+
+  setForm({
+    name: fullProduct.name,
+    slug: fullProduct.slug,
+    description: fullProduct.description || '',
+    base_price: String(fullProduct.base_price),
+    compare_price: fullProduct.compare_price
+      ? String(fullProduct.compare_price)
+      : '',
+    category_id: fullProduct.category_id || '',
+    inventory_quantity: String(fullProduct.inventory_quantity || 0),
+    is_active: fullProduct.is_active,
+    is_featured: fullProduct.is_featured,
+    images: (fullProduct.images || []).map((img: ProductImage) => img.url),
+    variants: fullProduct.variants || [],
+  });
+
+  setError('');
+  setIsEditOpen(true);
+};
 
   const openDelete = (product: Product) => {
     setSelectedProduct(product);
@@ -120,13 +174,17 @@ setProducts(res.data?.products || []);
     setError('');
     try {
       const payload = {
-        ...form,
-        slug: form.slug || generateSlug(form.name),
-        base_price: Number(form.base_price),
-        compare_price: form.compare_price ? Number(form.compare_price) : null,
-        inventory_quantity: Number(form.inventory_quantity),
-      };
+  ...form,
+  base_price: Number(form.base_price),
+  compare_price: form.compare_price
+    ? Number(form.compare_price)
+    : null,
+  inventory_quantity: Number(form.inventory_quantity),
+  variants: hasVariants ? variants : [],
+};
       await productApi.create(payload);
+      setVariants([]);
+setHasVariants(false);
       setIsAddOpen(false);
       fetchProducts();
     } catch (err: any) {
@@ -147,6 +205,7 @@ setProducts(res.data?.products || []);
         base_price: Number(form.base_price),
         compare_price: form.compare_price ? Number(form.compare_price) : null,
         inventory_quantity: Number(form.inventory_quantity),
+        variants: hasVariants ? variants : [],
       };
       await productApi.update(selectedProduct.slug, payload);
       setIsEditOpen(false);
@@ -376,6 +435,171 @@ setProducts(res.data?.products || []);
     folder="products"
   />
 </div>
+<h3 className="text-lg font-semibold mt-10 mb-4">Variants</h3>
+
+<div className="col-span-2">
+  <label className="flex items-center gap-3 mb-4">
+    <input
+      type="checkbox"
+      checked={hasVariants}
+      onChange={(e) => {
+        setHasVariants(e.target.checked);
+
+        if (!e.target.checked) {
+          setVariants([]);
+        } else {
+          setVariants([
+            {
+                  sku: "",
+                  size: "",
+                  color: "",
+                  color_hex: "#000000",
+                  stock_quantity: 0,
+                  price_adjustment: 0,
+                  image_url: "",
+                },
+          ]);
+        }
+      }}
+    />
+    <span>Sizes & Colors</span>
+  </label>
+</div>
+{hasVariants && (
+  <div className="col-span-2 space-y-5">
+
+    {variants.map((variant, index) => (
+      <div
+        key={index}
+        className="border rounded-xl p-5 space-y-4"
+      >
+
+        <div className="grid grid-cols-2 gap-4">
+
+          <input
+    placeholder="Size (S, M, L)"
+    value={variant.size}
+    onChange={(e)=>{
+        const copy = [...variants];
+
+copy[index] = {
+    ...copy[index],
+    sku: e.target.value,
+};
+
+setVariants(copy);
+    }}
+/>
+          <input
+            placeholder="SKU"
+            value={variant.sku}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].sku = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+
+          <input
+            placeholder="Color"
+            value={variant.color}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].color = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+
+          <input
+            type="color"
+            value={variant.color_hex}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].color_hex = e.target.value;
+              setVariants(copy);
+            }}
+          />
+
+          <input
+            type="number"
+            placeholder="Stock"
+            value={variant.stock_quantity}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].stock_quantity = Number(e.target.value);
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+
+          <input
+            type="number"
+            placeholder="Price Adjustment"
+            value={variant.price_adjustment}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].price_adjustment = Number(e.target.value);
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+
+        </div>
+<div className="col-span-2">
+
+<label className="block text-sm mb-2">
+Variant Image
+</label>
+
+<MultiImageUpload
+value={variant.image_url ? [variant.image_url] : []}
+onChange={(images) => {
+    const copy = [...variants];
+    copy[index].image_url = images[0] || "";
+    setVariants(copy);
+}}
+folder="products"
+/>
+
+</div>
+        <button
+          type="button"
+          onClick={() =>
+            setVariants(variants.filter((_, i) => i !== index))
+          }
+          className="text-red-600 text-sm"
+        >
+          Remove Variant
+        </button>
+
+      </div>
+    ))}
+
+    <button
+      type="button"
+      onClick={() =>
+        setVariants([
+          ...variants,
+          {
+            sku: "",
+            size: "",
+            color: "",
+            color_hex: "#000000",
+            stock_quantity: 0,
+            price_adjustment: 0,
+            image_url: "",
+          },
+        ])
+      }
+      className="bg-black text-white px-4 py-2 rounded-lg"
+    >
+      + Add Variant
+    </button>
+
+  </div>
+)}
 
             <div className="col-span-2 flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -520,6 +744,175 @@ setProducts(res.data?.products || []);
     folder="products"
   />
 </div>
+<h3 className="text-lg font-semibold mt-10 mb-4">Variants</h3>
+
+<div className="col-span-2">
+  <label className="flex items-center gap-3 mb-4">
+    <input
+      type="checkbox"
+      checked={hasVariants}
+      onChange={(e) => {
+        setHasVariants(e.target.checked);
+
+        if (!e.target.checked) {
+          setVariants([]);
+        } else {
+          setVariants([
+            {
+                  sku: "",
+                  size: "",
+                  color: "",
+                  color_hex: "#000000",
+                  stock_quantity: 0,
+                  price_adjustment: 0,
+                  image_url: "",
+                },
+          ]);
+        }
+      }}
+    />
+    <span>Sizes & Colors</span>
+  </label>
+</div>
+{hasVariants && (
+  <div className="col-span-2 space-y-5">
+    {variants.map((variant, index) => (
+      <div
+        key={variant.id || `new-${index}`}
+        className="border rounded-xl p-5 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold">Variant {index + 1}</h3>
+
+          <button
+            type="button"
+            onClick={() => {
+              setVariants((prev) => prev.filter((_, i) => i !== index));
+            }}
+            className="flex items-center gap-1 text-sm text-red-600 hover:text-red-800"
+          >
+            <Trash2 size={15} />
+            Remove
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <input
+            placeholder="Size (S, M, L)"
+            value={variant.size}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].size = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+          <input
+            placeholder="SKU"
+            value={variant.sku}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].sku = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+
+          <input
+            placeholder="Color"
+            value={variant.color}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].color = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded-lg px-3 py-2"
+          />
+
+          <input
+            type="color"
+            value={variant.color_hex}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[index].color_hex = e.target.value;
+              setVariants(copy);
+            }}
+          />
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Stock Quantity</label>
+            <input
+              type="number"
+              value={variant.stock_quantity}
+              onChange={(e) => {
+                const copy = [...variants];
+                copy[index].stock_quantity = Number(e.target.value);
+                setVariants(copy);
+              }}
+              className="border rounded-lg px-3 py-2 w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Price Adjustment (₦)</label>
+            <input
+              type="number"
+              value={variant.price_adjustment}
+              onChange={(e) => {
+                const copy = [...variants];
+                copy[index].price_adjustment = Number(e.target.value);
+                setVariants(copy);
+              }}
+              className="border rounded-lg px-3 py-2 w-full"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm mb-2">Variant Image</label>
+            <MultiImageUpload
+              value={variant.image_url ? [variant.image_url] : []}
+              onChange={(images) => {
+                const copy = [...variants];
+                copy[index].image_url = images[0] || "";
+                setVariants(copy);
+              }}
+              folder="products"
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setVariants((prev) => prev.filter((_, i) => i !== index))}
+          className="text-red-600 text-sm"
+        >
+          Remove Variant
+        </button>
+      </div>
+    ))}
+
+    <button
+      type="button"
+      onClick={() =>
+        setVariants([
+          ...variants,
+          {
+            sku: "",
+            size: "",
+            color: "",
+            color_hex: "#000000",
+            stock_quantity: 0,
+            price_adjustment: 0,
+            image_url: "",
+          },
+        ])
+      }
+      className="bg-black text-white px-4 py-2 rounded-lg"
+    >
+      + Add Variant
+    </button>
+  </div>
+)}
 
             <div className="col-span-2 flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer">

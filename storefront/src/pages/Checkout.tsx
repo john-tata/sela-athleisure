@@ -295,7 +295,7 @@ export function Checkout() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-rich-black text-white py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-rich-black text-black py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading
                     ? 'Processing...'

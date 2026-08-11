@@ -3,10 +3,10 @@ import { api } from '@/lib/api';
 
 interface HeroSlide {
   image_url: string;
-  heading: string;
-  subtext: string;
-  cta_primary: string;
-  cta_primary_link: string;
+  title: string;
+  subtitle: string;
+  cta_text: string;
+  cta_link: string;
   cta_secondary: string;
   cta_secondary_link: string;
 }
@@ -20,16 +20,21 @@ export default function HeroCarousel() {
 
   // Fetch slides on mount
   useEffect(() => {
-    api.getContent('hero-slides')
-      .then((res: any) => {
-        if (res.success) {
-          setSlides(res.data || []);
-        } else {
-          setSlides([]);
-        }
-      })
-      .catch(() => setSlides([]));
-  }, []);
+  api.getContent("hero-slides")
+    .then((res: any) => {
+      console.log(res);
+
+      if (res.status === "success") {
+        setSlides(res.data.slides || []);
+      } else {
+        setSlides([]);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      setSlides([]);
+    });
+}, []);
 
   const goTo = useCallback((index: number) => {
     if (isTransitioning || slides.length === 0) return;
@@ -111,7 +116,7 @@ export default function HeroCarousel() {
           {/* Background Image */}
           <img
             src={slide.image_url}
-            alt={slide.heading}
+            alt={slide.title}
             className="absolute inset-0 w-full h-full object-cover"
           />
           {/* Dark Gradient Overlay */}
@@ -133,18 +138,18 @@ export default function HeroCarousel() {
             }}
           >
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-4 tracking-tight">
-              {slide.heading}
+              {slide.title}
             </h1>
             <p className="text-lg md:text-xl text-neutral-300 mb-8 max-w-xl mx-auto">
-              {slide.subtext}
+              {slide.subtitle}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              {slide.cta_primary && (
+              {slide.cta_text && (
                 <a
-                  href={slide.cta_primary_link || '#'}
+                  href={slide.cta_link || '#'}
                   className="px-8 py-3.5 bg-white text-black font-semibold text-sm tracking-wider uppercase hover:bg-neutral-200 transition-colors duration-300"
                 >
-                  {slide.cta_primary}
+                  {slide.cta_text}
                 </a>
               )}
               {slide.cta_secondary && (
@@ -178,14 +183,6 @@ export default function HeroCarousel() {
             />
           </button>
         ))}
-      </div>
-
-      {/* Scroll Indicator */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
-        <span className="text-white/50 text-xs tracking-widest uppercase">Scroll</span>
-        <div className="w-5 h-8 border border-white/30 rounded-full flex justify-center pt-1.5">
-          <div className="w-1 h-2 bg-white/70 rounded-full animate-bounce" />
-        </div>
       </div>
 
       {/* Side Navigation Arrows (desktop only) */}

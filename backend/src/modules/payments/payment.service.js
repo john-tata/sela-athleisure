@@ -1,6 +1,7 @@
 const { supabaseAdmin } = require('../../config/supabase');
 const AppError = require('../../utils/AppError');
 const crypto = require('crypto');
+const orderService = require('../orders/order.service');
 
 let paystack;
 try {
@@ -99,24 +100,41 @@ async function verifyPayment(reference) {
 
   const paymentData = result.data;
 
+console.log("PAYSTACK VERIFY:", paymentData);
+
   // Update order payment status based on verification
-  if (paymentData.status === 'success') {
-    await supabaseAdmin
-      .from('orders')
-      .update({
-        payment_status: 'paid',
-        status: 'confirmed',
-        paid_at: paymentData.paid_at,
-      })
-      .eq('order_number', paymentData.reference);
-  } else {
-    await supabaseAdmin
-      .from('orders')
-      .update({
-        payment_status: 'failed',
-      })
-      .eq('order_number', paymentData.reference);
+if (paymentData.status === 'success') {
+  const { data, error } = await supabaseAdmin
+  .from('orders')
+  .update({
+    payment_status: 'paid',
+    status: 'confirmed',
+    paystack_reference: paymentData.reference,
+  })
+  .eq('order_number', paymentData.reference)
+  .select();
+
+console.log("UPDATED ORDER:", data);
+console.log("UPDATE ERROR:", error);
+
+  const { data: order } = await supabaseAdmin
+    .from('orders')
+    .select('id')
+    .eq('order_number', paymentData.reference)
+    .single();
+
+  if (order) {
+    await orderService.reduceInventory(order.id);
   }
+
+} else {
+  await supabaseAdmin
+    .from('orders')
+    .update({
+      payment_status: 'failed',
+    })
+    .eq('order_number', paymentData.reference);
+}
 
   return paymentData;
 }
@@ -151,7 +169,15 @@ async function handleWebhook(event, signature) {
 
     return { status: 'paid', reference: data.reference };
   }
+const { data: order } = await supabaseAdmin
+  .from('orders')
+  .select('id')
+  .eq('order_number', paymentData.reference)
+  .single();
 
+if (order) {
+  await orderService.reduceInventory(order.id);
+}
   if (eventType === 'charge.failed') {
     await supabaseAdmin
       .from('orders')

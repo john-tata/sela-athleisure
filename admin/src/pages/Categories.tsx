@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Layers } from 'lucide-react';
-import { categoryApi } from '../lib/api';
+import { categoryApi, uploadApi } from '../lib/api';
 import Modal from '../components/Modal';
 
 interface Category {
@@ -18,7 +18,7 @@ const emptyForm = { name: '', slug: '', description: '', image_url: '', sort_ord
 export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-
+const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -74,7 +74,25 @@ export default function Categories() {
     setSelected(cat);
     setIsDeleteOpen(true);
   };
+const handleImageUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
+  try {
+    const uploaded = await uploadApi.image(file, "categories");
+console.log(uploaded);
+    setForm(prev => ({
+      ...prev,
+      image_url: uploaded.url,
+    }));
+
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
+  }
+};
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -129,6 +147,43 @@ export default function Categories() {
 
   return (
     <div className="space-y-6">
+
+<div className="flex justify-between items-center">
+
+<input
+type="text"
+placeholder="Search categories..."
+value={search}
+onChange={(e)=>setSearch(e.target.value)}
+className="w-80 px-4 py-2 border rounded-lg"
+/>
+
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+<div className="bg-white rounded-xl border p-5">
+<p className="text-sm text-gray-500">Categories</p>
+<p className="text-3xl font-bold mt-2">{categories.length}</p>
+</div>
+
+<div className="bg-white rounded-xl border p-5">
+<p className="text-sm text-gray-500">Products</p>
+<p className="text-3xl font-bold mt-2">
+{categories.reduce((a,c)=>a+(c.product_count||0),0)}
+</p>
+</div>
+
+<div className="bg-white rounded-xl border p-5">
+<p className="text-sm text-gray-500">Largest Category</p>
+<p className="text-lg font-semibold mt-2">
+{[...categories].sort((a,b)=>(b.product_count||0)-(a.product_count||0))[0]?.name || "-"}
+</p>
+</div>
+
+</div>
+
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">{categories.length} categories</p>
@@ -148,12 +203,24 @@ export default function Categories() {
         <p className="text-gray-400 text-sm">No categories yet</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map((cat) => (
+          {categories
+  .filter(cat =>
+    cat.name.toLowerCase().includes(search.toLowerCase()) ||
+    cat.slug.toLowerCase().includes(search.toLowerCase())
+  )
+  .map((cat) => (
             <div key={cat.id} className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-[#C89A5A]/10 rounded-lg flex items-center justify-center">
-                    <Layers size={16} className="text-[#C89A5A]" />
+                    {cat.image_url ? (
+<img
+src={cat.image_url}
+className="w-10 h-10 rounded-lg object-cover"
+/>
+) : (
+<Layers size={16} className="text-[#C89A5A]" />
+)}
                   </div>
                   <div>
                     <h3 className="font-medium text-[#111111]">{cat.name}</h3>
@@ -180,7 +247,9 @@ export default function Categories() {
               )}
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>Order: {cat.sort_order}</span>
-                <span>{cat.product_count ?? 0} products</span>
+                <span className="bg-gray-100 px-2 py-1 rounded-full">
+{cat.product_count ?? 0} products
+</span>
               </div>
             </div>
           ))}
@@ -221,14 +290,24 @@ export default function Categories() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-            <input
-              value={form.image_url}
-              onChange={e => setForm({ ...form, image_url: e.target.value })}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]"
-              placeholder="https://..."
-            />
-          </div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Category Image
+  </label>
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={handleImageUpload}
+    className="w-full"
+  />
+
+  {form.image_url && (
+    <img
+      src={form.image_url}
+      className="mt-3 w-24 h-24 rounded-lg object-cover border"
+    />
+  )}
+</div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
             <input
@@ -279,13 +358,25 @@ export default function Categories() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-            <input
-              value={form.image_url}
-              onChange={e => setForm({ ...form, image_url: e.target.value })}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C89A5A]/30 focus:border-[#C89A5A]"
-            />
-          </div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Category Image
+  </label>
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={handleImageUpload}
+    className="w-full text-sm"
+  />
+
+  {form.image_url && (
+    <img
+      src={form.image_url}
+      alt="Preview"
+      className="mt-3 h-28 w-28 rounded-lg object-cover border"
+    />
+  )}
+</div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
             <input

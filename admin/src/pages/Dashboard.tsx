@@ -3,37 +3,87 @@ import { Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '@/lib/api';
 
-const revenueData = [
-  { month: 'Jan', revenue: 120000 },
-  { month: 'Feb', revenue: 180000 },
-  { month: 'Mar', revenue: 240000 },
-  { month: 'Apr', revenue: 210000 },
-  { month: 'May', revenue: 320000 },
-  { month: 'Jun', revenue: 380000 },
-];
+
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ products: 0, orders: 0, revenue: 0, customers: 0 });
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+  products: 0,
+  orders: 0,
+  revenue: 0,
+  customers: 0,
+});
 
-  useEffect(() => {
-    Promise.all([
-      api.get('/products?limit=1'),
-      api.get('/orders'),
-    ])
-      .then(([prodRes, orderRes]) => {
-        setStats({
-          products: prodRes.data?.count || 0,
-          orders: orderRes.data?.length || 0,
-          revenue: 2400000,
-          customers: 89,
+const [recentOrders, setRecentOrders] = useState<any[]>([]);
+const [chartData, setChartData] = useState<any[]>([]);
+const [lowStock, setLowStock] = useState<any[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  Promise.all([
+    api.get("/products"),
+    api.get("/orders"),
+  ])
+    .then(([prodRes, orderRes]) => {
+
+      const products = prodRes.data?.products || [];
+      const orders = orderRes.data?.orders || [];
+console.log("ORDERS", orders);
+console.log("FIRST ORDER", orders[0]);
+      const revenue = orders.reduce(
+        (sum: number, order: any) =>
+          order.payment_status === "paid"
+            ? sum + Number(order.total_amount || 0)
+            : sum,
+        0
+      );
+
+      setStats({
+        products: products.length,
+        orders: orders.length,
+        revenue,
+        customers: new Set(
+          orders.map((o: any) => o.customer_email || o.guest_email)
+        ).size,
+      });
+
+      setRecentOrders(orders.slice(0, 5));
+
+      // Monthly revenue chart
+      const monthly: Record<string, number> = {};
+
+      orders.forEach((order: any) => {
+        if (order.payment_status !== "paid") return;
+
+        const month = new Date(order.created_at).toLocaleString("default", {
+          month: "short",
         });
-        setRecentOrders((orderRes.data || []).slice(0, 5));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+
+        monthly[month] =
+          (monthly[month] || 0) +
+          Number(order.total_amount || 0);
+      });
+
+      setChartData(
+        Object.entries(monthly).map(([month, revenue]) => ({
+          month,
+          revenue,
+        }))
+      );
+
+      // Low stock
+      setLowStock(
+        products
+          .filter((p: any) => p.inventory_quantity <= 5)
+          .sort(
+            (a: any, b: any) =>
+              a.inventory_quantity - b.inventory_quantity
+          )
+          .slice(0, 5)
+      );
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false));
+}, []);
 
   const cards = [
     { label: 'Total Products', value: stats.products, icon: Package, color: 'text-[#C89A5A]' },
@@ -80,7 +130,7 @@ export default function Dashboard() {
             <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
               <h2 className="font-semibold text-[#111111] mb-6">Monthly Revenue</h2>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={revenueData}>
+                <BarChart data={chartData}>
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `N${v / 1000}k`} />
                   <Tooltip formatter={(v: number) => `N${v.toLocaleString()}`} />

@@ -110,3 +110,32 @@ verifyPayment: (reference: string) =>
   getContent: (section: string) => fetchApi(`/content/${section}`),
   getAllContent: () => fetchApi('/content/all'),
 };
+export const contentApi = {
+  getSection: async (key: string) => {
+    const response = await fetchApi(`/content/section/${key}`);
+    return response;
+  },
+
+  updateSection: async (key: string, data: any) => {
+    const response = await fetchApi(`/content/section/${key}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return response;
+  },
+
+  listSlides: async () => {
+    const response = await fetchApi('/content/hero-slides');
+    return response;
+  },
+
+  listTestimonials: async () => {
+    const response = await fetchApi('/content/testimonials');
+    return response;
+  },
+
+  listLookbook: async () => {
+    const response = await fetchApi('/content/lookbook');
+    return response;
+  },
+};
