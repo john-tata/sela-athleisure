@@ -44,10 +44,6 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  calculateShipping: (state: string, subtotal: number) =>
-  fetchApi(
-    `/shipping/calculate?state=${encodeURIComponent(state)}&subtotal=${encodeURIComponent(subtotal)}`
-  ),
   // Products
   getProducts: (params = '') => fetchApi(`/products?${params}`),
   getProduct: (slug: string) => fetchApi(`/products/${slug}`),
