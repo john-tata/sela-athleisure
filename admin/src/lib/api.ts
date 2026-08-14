@@ -30,7 +30,19 @@ export const productApi = {
   update: (slug: string, data: any) => api.patch(`/products/${slug}`, data),
   delete: (slug: string) => api.delete(`/products/${slug}`),
 };
+// === shipping ===
+export const shippingApi = {
+  listZones: () => api.get('/shipping/zones'),
 
+  createZone: (data: any) =>
+    api.post('/shipping/zones', data),
+
+  updateZone: (id: string, data: any) =>
+    api.patch(`/shipping/zones/${id}`, data),
+
+  deleteZone: (id: string) =>
+    api.delete(`/shipping/zones/${id}`),
+};
 // === Categories ===
 export const categoryApi = {
   list: () => api.get('/categories'),

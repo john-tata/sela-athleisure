@@ -45,8 +45,8 @@ const socialLinks = [
     ),
   },
   {
-    label: 'Pinterest',
-    href: 'https://pinterest.com/selaathleisure',
+    label: 'Whatsapp',
+    href: 'https://wa.me/09060366423',
     icon: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
         <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12.017 24c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641 0 12.017 0z" />
@@ -76,7 +76,7 @@ const Footer: React.FC = () => {
               <span className="text-2xl font-bold tracking-tight">SELA</span>
             </a>
             <p className="text-neutral-400 text-sm leading-relaxed mb-6 max-w-xs">
-              Premium athleisure designed for women who move. Crafted with
+              Premium athleisure designed for people who move. Crafted with
               intention, worn with confidence.
             </p>
             {/* Payment icons */}
@@ -155,7 +155,7 @@ const Footer: React.FC = () => {
             </div>
             <div className="space-y-2 text-sm text-neutral-400">
               <p>support@selaathleisure.com</p>
-              <p>+1 (800) 555-SEL A</p>
+              <p>0906 036 6423</p>
             </div>
           </div>
         </div>
@@ -165,7 +165,7 @@ const Footer: React.FC = () => {
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-neutral-500">
-            &copy; {new Date().getFullYear()} Sela Athleisure. All rights reserved.
+            &copy; {new Date().getFullYear()} TataTechSolutions. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-xs text-neutral-500">
             <a href="/privacy" className="hover:text-neutral-300 transition-colors duration-300">

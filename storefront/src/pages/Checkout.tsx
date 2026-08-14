@@ -1,21 +1,41 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, Lock, Truck } from 'lucide-react';
+
 import { useCartStore } from '@/stores/cartStore';
 import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+
+type ShippingQuote = {
+  shipping: number;
+  total: number;
+  freeShipping: boolean;
+  freeShippingThreshold: number | null;
+  zone: {
+    id: string;
+    name: string;
+  } | null;
+};
 
 export function Checkout() {
-  
+  const { user } = useAuth();
 
   const {
     items,
     subtotal,
-    shipping,
-    total,
     loadCart,
   } = useCartStore();
 
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuote>({
+    shipping: 0,
+    total: subtotal,
+    freeShipping: false,
+    freeShippingThreshold: null,
+    zone: null,
+  });
+
+  const [shippingLoading, setShippingLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,11 +51,104 @@ export function Checkout() {
     postal_code: '',
   });
 
+  /*
+   * Always load the latest cart when checkout opens.
+   */
   useEffect(() => {
     loadCart();
   }, [loadCart]);
 
-  const updateField = (field: string, value: string) => {
+  /*
+   * Keep shipping quote total synchronized with subtotal
+   * whenever the cart changes.
+   */
+  useEffect(() => {
+    setShippingQuote((prev) => ({
+      ...prev,
+      total: subtotal + prev.shipping,
+    }));
+  }, [subtotal]);
+
+  /*
+   * Calculate shipping whenever the customer selects/types
+   * a state.
+   */
+  useEffect(() => {
+    const state = form.state.trim();
+
+    if (!state) {
+      setShippingQuote({
+        shipping: 0,
+        total: subtotal,
+        freeShipping: false,
+        freeShippingThreshold: null,
+        zone: null,
+      });
+
+      return;
+    }
+
+    let cancelled = false;
+
+    const calculateShipping = async () => {
+      try {
+        setShippingLoading(true);
+        setError('');
+
+        const response = await api.calculateShipping(
+          state,
+          subtotal
+        );
+
+        if (cancelled) return;
+
+        if (response.status !== 'success') {
+          throw new Error('Unable to calculate shipping.');
+        }
+
+        setShippingQuote(response.data);
+      } catch (err) {
+        if (cancelled) return;
+
+        console.error('Shipping calculation error:', err);
+
+        setShippingQuote({
+          shipping: 0,
+          total: subtotal,
+          freeShipping: false,
+          freeShippingThreshold: null,
+          zone: null,
+        });
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to calculate shipping.'
+        );
+      } finally {
+        if (!cancelled) {
+          setShippingLoading(false);
+        }
+      }
+    };
+
+    calculateShipping();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.state, subtotal]);
+
+  /*
+   * Final amount shown to the customer.
+   */
+  const shipping = shippingQuote.shipping;
+  const total = subtotal + shipping;
+
+  const updateField = (
+    field: keyof typeof form,
+    value: string
+  ) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -50,29 +163,71 @@ export function Checkout() {
       return;
     }
 
+    if (!form.state.trim()) {
+      setError('Please enter your state before continuing.');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
 
+      /*
+       * Recalculate shipping one final time before creating
+       * the order. This prevents the customer from paying
+       * using a stale quote.
+       */
+      const shippingResponse = await api.calculateShipping(
+        form.state.trim(),
+        subtotal
+      );
+
+      if (shippingResponse.status !== 'success') {
+        throw new Error(
+          'Unable to calculate shipping. Please try again.'
+        );
+      }
+
+      const finalShippingQuote = shippingResponse.data;
+
+      setShippingQuote(finalShippingQuote);
+
       const orderItems = items.map((item) => ({
         productId: item.product.id,
+
         ...(item.variant?.id
-          ? { variantId: item.variant.id }
+          ? {
+              variantId: item.variant.id,
+            }
           : {}),
+
         variantName: item.variant
           ? `${item.variant.color || ''}${
-              item.variant.color && item.variant.size ? ' / ' : ''
+              item.variant.color && item.variant.size
+                ? ' / '
+                : ''
             }${item.variant.size || ''}`
           : 'Default',
+
         quantity: item.quantity,
       }));
 
-      const orderRes = await api.createGuestOrder({
-        email: form.email,
+      /*
+       * The backend should calculate the authoritative
+       * order total from the items + shipping address.
+       */
+      const orderData = {
         items: orderItems,
         shippingAddress: form,
         billingAddress: form,
-      });
+      };
+
+      const orderRes = user
+        ? await api.createOrder(orderData)
+        : await api.createGuestOrder({
+            email: form.email,
+            ...orderData,
+          });
 
       if (orderRes.status !== 'success') {
         throw new Error('Unable to create your order.');
@@ -80,17 +235,22 @@ export function Checkout() {
 
       const order = orderRes.data;
 
+      /*
+       * Payment initialization should use the order that was
+       * just created. The backend should use the order's final
+       * total rather than trusting a frontend amount.
+       */
       const paymentRes = await api.initializePayment(
         order.id,
         form.email
       );
 
       if (paymentRes.status !== 'success') {
-        throw new Error('Unable to initialize payment.');
+        throw new Error(
+          'Unable to initialize payment.'
+        );
       }
 
-      // Save order information so the verification page
-      // knows which order the customer just paid for.
       sessionStorage.setItem(
         'pending_order',
         JSON.stringify({
@@ -100,7 +260,8 @@ export function Checkout() {
         })
       );
 
-      window.location.href = paymentRes.data.authorizationUrl;
+      window.location.href =
+        paymentRes.data.authorizationUrl;
     } catch (err) {
       console.error('Checkout error:', err);
 
@@ -157,6 +318,7 @@ export function Checkout() {
 
               <div className="flex items-center gap-2 mb-8">
                 <Lock size={16} />
+
                 <h1 className="font-display text-4xl sm:text-5xl text-rich-black">
                   Checkout
                 </h1>
@@ -178,7 +340,10 @@ export function Checkout() {
                       placeholder="Email address"
                       value={form.email}
                       onChange={(e) =>
-                        updateField('email', e.target.value)
+                        updateField(
+                          'email',
+                          e.target.value
+                        )
                       }
                       className="checkout-input"
                     />
@@ -189,7 +354,10 @@ export function Checkout() {
                       placeholder="Phone number"
                       value={form.phone}
                       onChange={(e) =>
-                        updateField('phone', e.target.value)
+                        updateField(
+                          'phone',
+                          e.target.value
+                        )
                       }
                       className="checkout-input"
                     />
@@ -210,7 +378,10 @@ export function Checkout() {
                       placeholder="Full name"
                       value={form.full_name}
                       onChange={(e) =>
-                        updateField('full_name', e.target.value)
+                        updateField(
+                          'full_name',
+                          e.target.value
+                        )
                       }
                       className="checkout-input"
                     />
@@ -220,7 +391,10 @@ export function Checkout() {
                       placeholder="Address"
                       value={form.address_line1}
                       onChange={(e) =>
-                        updateField('address_line1', e.target.value)
+                        updateField(
+                          'address_line1',
+                          e.target.value
+                        )
                       }
                       className="checkout-input"
                     />
@@ -229,7 +403,10 @@ export function Checkout() {
                       placeholder="Apartment, suite, etc. (optional)"
                       value={form.address_line2}
                       onChange={(e) =>
-                        updateField('address_line2', e.target.value)
+                        updateField(
+                          'address_line2',
+                          e.target.value
+                        )
                       }
                       className="checkout-input"
                     />
@@ -241,17 +418,23 @@ export function Checkout() {
                         placeholder="City"
                         value={form.city}
                         onChange={(e) =>
-                          updateField('city', e.target.value)
+                          updateField(
+                            'city',
+                            e.target.value
+                          )
                         }
                         className="checkout-input"
                       />
 
                       <input
                         required
-                        placeholder="State"
+                        placeholder="State (e.g. FCT)"
                         value={form.state}
                         onChange={(e) =>
-                          updateField('state', e.target.value)
+                          updateField(
+                            'state',
+                            e.target.value
+                          )
                         }
                         className="checkout-input"
                       />
@@ -265,7 +448,10 @@ export function Checkout() {
                         placeholder="Country"
                         value={form.country}
                         onChange={(e) =>
-                          updateField('country', e.target.value)
+                          updateField(
+                            'country',
+                            e.target.value
+                          )
                         }
                         className="checkout-input"
                       />
@@ -274,7 +460,10 @@ export function Checkout() {
                         placeholder="Postal code"
                         value={form.postal_code}
                         onChange={(e) =>
-                          updateField('postal_code', e.target.value)
+                          updateField(
+                            'postal_code',
+                            e.target.value
+                          )
                         }
                         className="checkout-input"
                       />
@@ -282,6 +471,44 @@ export function Checkout() {
                     </div>
 
                   </div>
+
+                  {/* Shipping status */}
+                  {form.state.trim() && (
+                    <div className="mt-5 flex items-center gap-3 p-4 bg-gray-50 border border-gray-200">
+
+                      <Truck
+                        size={17}
+                        className="text-rich-black"
+                      />
+
+                      <div className="flex-1">
+
+                        {shippingLoading ? (
+                          <p className="font-body text-sm text-cool-gray">
+                            Calculating shipping...
+                          </p>
+                        ) : shippingQuote.zone ? (
+                          <div>
+                            <p className="font-body text-sm font-medium text-rich-black">
+                              Shipping to{' '}
+                              {shippingQuote.zone.name}
+                            </p>
+
+                            <p className="font-body text-xs text-cool-gray mt-1">
+                              {shippingQuote.freeShipping
+                                ? 'Free shipping'
+                                : `Delivery: N${shipping.toLocaleString()}`}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="font-body text-sm text-red-600">
+                            Shipping unavailable for this location.
+                          </p>
+                        )}
+
+                      </div>
+                    </div>
+                  )}
                 </section>
 
                 {error && (
@@ -294,12 +521,18 @@ export function Checkout() {
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-rich-black text-black py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={
+                    loading ||
+                    shippingLoading ||
+                    !shippingQuote.zone
+                  }
+                  className="w-full bg-rich-black text-black py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-gold hover:text-rich-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading
                     ? 'Processing...'
-                    : `Pay N${total.toLocaleString()}`}
+                    : shippingLoading
+                      ? 'Calculating shipping...'
+                      : `Pay N${total.toLocaleString()}`}
                 </button>
 
                 <p className="font-body text-xs text-cool-gray text-center">
@@ -338,6 +571,7 @@ export function Checkout() {
                       />
 
                       <div className="flex-1">
+
                         <p className="font-body text-sm font-medium text-rich-black">
                           {item.product?.name}
                         </p>
@@ -348,13 +582,18 @@ export function Checkout() {
 
                         {item.variant && (
                           <p className="font-body text-xs text-cool-gray mt-1">
-                            {item.variant.color} / {item.variant.size}
+                            {item.variant.color} /{' '}
+                            {item.variant.size}
                           </p>
                         )}
 
                         <p className="font-body text-sm font-semibold mt-2">
-                          N{(price * item.quantity).toLocaleString()}
+                          N
+                          {(
+                            price * item.quantity
+                          ).toLocaleString()}
                         </p>
+
                       </div>
                     </div>
                   );
@@ -366,21 +605,44 @@ export function Checkout() {
 
                 <div className="flex justify-between font-body text-sm text-cool-gray">
                   <span>Subtotal</span>
-                  <span>N{subtotal.toLocaleString()}</span>
+                  <span>
+                    N{subtotal.toLocaleString()}
+                  </span>
                 </div>
 
                 <div className="flex justify-between font-body text-sm text-cool-gray">
                   <span>Shipping</span>
+
                   <span>
-                    {shipping === 0
-                      ? 'Free'
-                      : `N${shipping.toLocaleString()}`}
+                    {shippingLoading
+                      ? 'Calculating...'
+                      : shippingQuote.freeShipping
+                        ? 'Free'
+                        : shippingQuote.zone
+                          ? `N${shipping.toLocaleString()}`
+                          : '—'}
                   </span>
                 </div>
 
+                {shippingQuote.freeShippingThreshold !== null &&
+                  !shippingQuote.freeShipping && (
+                    <p className="font-body text-xs text-cool-gray pt-1">
+                      Spend N
+                      {Math.max(
+                        0,
+                        shippingQuote.freeShippingThreshold -
+                          subtotal
+                      ).toLocaleString()}{' '}
+                      more for free shipping.
+                    </p>
+                  )}
+
                 <div className="flex justify-between border-t border-gray-200 pt-4 font-body text-lg font-semibold text-rich-black">
                   <span>Total</span>
-                  <span>N{total.toLocaleString()}</span>
+
+                  <span>
+                    N{total.toLocaleString()}
+                  </span>
                 </div>
 
               </div>

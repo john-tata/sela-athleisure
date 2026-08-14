@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Save, Store, Palette, CreditCard } from 'lucide-react';
-
+import { useEffect, useState } from 'react';
+import { Save, Store, Palette, CreditCard, Truck, Plus, Trash2, } from 'lucide-react';
+import { shippingApi } from '../lib/api';
 export default function Settings() {
   const [storeName, setStoreName] = useState('Sela Athleisure');
   const [storeDesc, setStoreDesc] = useState('Premium athleisure wear for the modern lifestyle.');
@@ -9,6 +9,75 @@ export default function Settings() {
   const [primaryColor, setPrimaryColor] = useState('#111111');
   const [accentColor, setAccentColor] = useState('#fbbf24');
   const [bgColor, setBgColor] = useState('#ffffff');
+  const [shippingZones, setShippingZones] = useState<any[]>([]);
+const [shippingLoading, setShippingLoading] = useState(true);
+const [shippingSaving, setShippingSaving] = useState(false);
+
+const [newZone, setNewZone] = useState({
+  name: '',
+  state: '',
+  shipping_fee: '',
+  free_shipping_threshold: '',
+});
+useEffect(() => {
+  loadShippingZones();
+}, []);
+
+async function loadShippingZones() {
+  try {
+    setShippingLoading(true);
+
+    const response = await shippingApi.listZones();
+
+    setShippingZones(response.data?.zones || []);
+  } catch (error) {
+    console.error('Failed to load shipping zones:', error);
+  } finally {
+    setShippingLoading(false);
+  }
+}
+async function addShippingZone() {
+  if (!newZone.name || !newZone.shipping_fee) return;
+
+  try {
+    setShippingSaving(true);
+
+    await shippingApi.createZone({
+      name: newZone.name,
+      state: newZone.state || null,
+      shipping_fee: Number(newZone.shipping_fee),
+      free_shipping_threshold:
+        newZone.free_shipping_threshold === ''
+          ? null
+          : Number(newZone.free_shipping_threshold),
+      is_active: true,
+    });
+
+    setNewZone({
+      name: '',
+      state: '',
+      shipping_fee: '',
+      free_shipping_threshold: '',
+    });
+
+    await loadShippingZones();
+  } catch (error) {
+    console.error('Failed to create shipping zone:', error);
+  } finally {
+    setShippingSaving(false);
+  }
+}
+
+async function deleteShippingZone(id: string) {
+  if (!confirm('Delete this shipping zone?')) return;
+
+  try {
+    await shippingApi.deleteZone(id);
+    await loadShippingZones();
+  } catch (error) {
+    console.error('Failed to delete shipping zone:', error);
+  }
+}
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -162,6 +231,155 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      {/* Shipping Settings */}
+<div className="bg-white rounded-lg border border-gray-200 p-6">
+  <div className="flex items-center gap-3 mb-6">
+    <div className="p-2 bg-orange-100 rounded-lg">
+      <Truck size={18} className="text-orange-600" />
+    </div>
+
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900">
+        Shipping Zones
+      </h2>
+
+      <p className="text-sm text-gray-500">
+        Control delivery fees and free-shipping thresholds.
+      </p>
+    </div>
+  </div>
+
+  {/* Existing zones */}
+  <div className="space-y-3 mb-8">
+    {shippingLoading ? (
+      <p className="text-sm text-gray-500">
+        Loading shipping zones...
+      </p>
+    ) : shippingZones.length === 0 ? (
+      <p className="text-sm text-gray-500">
+        No shipping zones configured.
+      </p>
+    ) : (
+      shippingZones.map((zone) => (
+        <div
+          key={zone.id}
+          className="border border-gray-200 rounded-lg p-4"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium text-gray-900">
+                {zone.name}
+              </p>
+
+              <p className="text-sm text-gray-500 mt-1">
+                {zone.state || 'All other locations'}
+              </p>
+
+              <div className="flex gap-5 mt-3 text-sm">
+                <span>
+                  Shipping:{' '}
+                  <strong>
+                    ₦{Number(zone.shipping_fee).toLocaleString()}
+                  </strong>
+                </span>
+
+                <span>
+                  Free from:{' '}
+                  <strong>
+                    {zone.free_shipping_threshold
+                      ? `₦${Number(
+                          zone.free_shipping_threshold
+                        ).toLocaleString()}`
+                      : 'Never'}
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => deleteShippingZone(zone.id)}
+              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+
+  {/* Add zone */}
+  <div className="border-t border-gray-200 pt-6">
+    <h3 className="text-sm font-semibold text-gray-900 mb-4">
+      Add Shipping Zone
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <input
+        placeholder="Zone name e.g. Abuja"
+        value={newZone.name}
+        onChange={(e) =>
+          setNewZone({
+            ...newZone,
+            name: e.target.value,
+          })
+        }
+        className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+      />
+
+      <input
+        placeholder="State e.g. FCT"
+        value={newZone.state}
+        onChange={(e) =>
+          setNewZone({
+            ...newZone,
+            state: e.target.value,
+          })
+        }
+        className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+      />
+
+      <input
+        type="number"
+        min="0"
+        placeholder="Shipping fee"
+        value={newZone.shipping_fee}
+        onChange={(e) =>
+          setNewZone({
+            ...newZone,
+            shipping_fee: e.target.value,
+          })
+        }
+        className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+      />
+
+      <input
+        type="number"
+        min="0"
+        placeholder="Free shipping threshold"
+        value={newZone.free_shipping_threshold}
+        onChange={(e) =>
+          setNewZone({
+            ...newZone,
+            free_shipping_threshold: e.target.value,
+          })
+        }
+        className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
+      />
+    </div>
+
+    <button
+      type="button"
+      onClick={addShippingZone}
+      disabled={shippingSaving}
+      className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-[#111] text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+    >
+      <Plus size={16} />
+      {shippingSaving ? 'Adding...' : 'Add Shipping Zone'}
+    </button>
+  </div>
+</div>
 
       {/* Payment Settings */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -207,3 +425,4 @@ export default function Settings() {
     </div>
   );
 }
+

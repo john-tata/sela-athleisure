@@ -1,11 +1,17 @@
 const { supabaseAdmin } = require('../../config/supabase');
 const AppError = require('../../utils/AppError');
-
+const shippingService = require('../shipping/shipping.service');
 // ============================================
 // EXISTING: Storefront queries (PRESERVED)
 // ============================================
 
-async function createOrder({ userId, guestEmail, items, shippingAddress, billingAddress }) {
+async function createOrder({
+  userId,
+  guestEmail,
+  items,
+  shippingAddress,
+  billingAddress,
+}) {
   const orderNumber = `SEL${Date.now()}`;
   
   let subtotal = 0;
@@ -64,8 +70,15 @@ if (variant.stock_quantity < item.quantity) {
   });
 }
 
-  const shipping = subtotal > 50000 ? 0 : 3500;
-  const total = subtotal + shipping;
+    // Calculate shipping dynamically based on
+  // the customer's state and current subtotal.
+  const shippingResult = await shippingService.calculateShipping({
+    state: shippingAddress?.state,
+    subtotal,
+  });
+
+  const shipping = shippingResult.shipping;
+  const total = shippingResult.total;
 
   const { data: order, error } = await supabaseAdmin
     .from('orders')

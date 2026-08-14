@@ -15,8 +15,14 @@ import About from "@/pages/About";
 import SizeGuide from "@/pages/SizeGuide";
 import FAQs from "@/pages/FAQS";
 import TrackOrder from "@/pages/TrackOrder";
-import Footer from "@/sections/Footer";import Shipping from "@/pages/Shipping";
-
+import Footer from "@/sections/Footer";
+import Shipping from "@/pages/Shipping";
+import Account from "@/pages/Account";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
+import Cookies from "@/pages/Cookies";
 
 import Home from "@/pages/Home";
 import ProductDetails from "@/pages/ProductDetails";
@@ -40,6 +46,12 @@ function App() {
       <FloatingShopButton />
 
       <Routes>
+        <Route path="/account" element={<Account />} />
+        <Route path="/login" element={<Login />} />
+<Route path="/signup" element={<Signup />} />
+<Route path="/privacy" element={<Privacy />} />
+<Route path="/terms" element={<Terms />} />
+<Route path="/cookies" element={<Cookies />} />
         <Route path="/" element={<Home />} />
         <Route path="/shop" element={<Shop />} />
         <Route

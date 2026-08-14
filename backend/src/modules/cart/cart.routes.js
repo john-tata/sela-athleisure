@@ -3,7 +3,7 @@ const router = express.Router();
 const { z } = require('zod');
 const cartService = require('./cart.service');
 const validate = require('../../middleware/validate');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, optionalAuth } = require('../../middleware/auth');
 
 const addItemSchema = z.object({
   productId: z.string().uuid().optional(),
@@ -24,7 +24,7 @@ function getCartContext(req) {
   };
 }
 
-router.get('/', async (req, res, next) => {
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const cart = await cartService.getCart(getCartContext(req));
     res.json({ success: true, data: cart });
@@ -33,7 +33,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/items', validate(addItemSchema), async (req, res, next) => {
+router.post('/items', optionalAuth, validate(addItemSchema), async (req, res, next) => {
   try {
     await cartService.addItem({ ...getCartContext(req), ...req.body });
     const cart = await cartService.getCart(getCartContext(req));
@@ -43,7 +43,7 @@ router.post('/items', validate(addItemSchema), async (req, res, next) => {
   }
 });
 
-router.put('/items/:itemId', validate(updateItemSchema), async (req, res, next) => {
+router.put('/items/:itemId', optionalAuth, validate(updateItemSchema), async (req, res, next) => {
   try {
     await cartService.updateItem({
       ...getCartContext(req),
@@ -62,7 +62,7 @@ router.put('/items/:itemId', validate(updateItemSchema), async (req, res, next) 
   }
 });
 
-router.delete('/items/:itemId', async (req, res, next) => {
+router.delete('/items/:itemId', optionalAuth, async (req, res, next) => {
   try {
     await cartService.removeItem({
       ...getCartContext(req),

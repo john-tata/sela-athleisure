@@ -62,6 +62,21 @@ export function Shop() {
 
   const isNewArrivals = urlSort === 'newest';
 
+  // Purely presentational state — entrance animation + sticky toolbar depth.
+  const [mounted, setMounted] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   /*
    * LOAD PRODUCTS
    */
@@ -208,27 +223,57 @@ export function Shop() {
 
   return (
     <main className="min-h-screen bg-white pt-[60px] lg:pt-[72px]">
+      <style>{`
+        @keyframes selaFadeUp {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .sela-reveal {
+          animation: selaFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes selaShimmer {
+          0%   { background-position: -400px 0; }
+          100% { background-position: 400px 0; }
+        }
+        .sela-shimmer {
+          background: linear-gradient(90deg, #f3f4f6 25%, #ececec 37%, #f3f4f6 63%);
+          background-size: 800px 100%;
+          animation: selaShimmer 1.6s ease-in-out infinite;
+        }
+        .sela-scroll-x::-webkit-scrollbar { display: none; }
+        .sela-scroll-x { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
 
       {/* SHOP HEADER */}
-      
+
       <section className="px-4 sm:px-6 lg:px-12 py-12 lg:py-20 border-b border-gray-100">
         <div className="max-w-7xl mx-auto">
 
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-rich-black">
-  {slug
-    ? collectionNames[slug] || 'Collection'
-    : isNewArrivals
-      ? 'New Arrivals'
-      : 'Shop'}
-</h1>
+          <div
+            className={`transition-all duration-700 ease-out ${
+              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+            }`}
+          >
+            <p className="font-body text-xs uppercase tracking-[0.2em] text-gold mb-4">
+              {slug ? 'Collection' : 'Shop'}
+            </p>
 
-          <p className="font-body text-sm text-cool-gray mt-4 max-w-xl">
-  {slug
-    ? `Explore our ${collectionNames[slug]?.toLowerCase() || 'collection'} collection.`
-    : isNewArrivals
-      ? 'Discover the latest pieces from SELA.'
-      : 'Explore the SELA collection.'}
-</p>
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-rich-black">
+              {slug
+                ? collectionNames[slug] || 'Collection'
+                : isNewArrivals
+                  ? 'New Arrivals'
+                  : 'Shop'}
+            </h1>
+
+            <p className="font-body text-sm text-cool-gray mt-4 max-w-xl">
+              {slug
+                ? `Explore our ${collectionNames[slug]?.toLowerCase() || 'collection'} collection.`
+                : isNewArrivals
+                  ? 'Discover the latest pieces from SELA.'
+                  : 'Explore the SELA collection.'}
+            </p>
+          </div>
 
         </div>
       </section>
@@ -239,7 +284,11 @@ export function Shop() {
 
           {/* TOOLBAR */}
           {!loading && !error && products.length > 0 && (
-            <div className="space-y-6 mb-10">
+            <div
+              className={`sticky top-[60px] lg:top-[72px] z-20 -mx-4 sm:-mx-6 lg:-mx-12 px-4 sm:px-6 lg:px-12 py-4 mb-8 space-y-6 bg-white/90 backdrop-blur-md transition-shadow duration-300 ${
+                scrolled ? 'border-b border-gray-200 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.08)]' : 'border-b border-transparent'
+              }`}
+            >
 
               {/* Product count + sort */}
               <div className="flex items-center justify-between">
@@ -260,43 +309,55 @@ export function Shop() {
                     Sort by
                   </label>
 
-                  <select
-                    id="sort"
-                    value={urlSort || 'default'}
-                    onChange={(e) =>
-                      handleSortChange(e.target.value)
-                    }
-                    className="border border-gray-200 bg-white px-4 py-2.5 font-body text-sm text-rich-black outline-none transition-colors hover:border-gray-400 focus:border-rich-black"
-                  >
-                    <option value="default">
-                      Featured
-                    </option>
+                  <div className="relative">
+                    <select
+                      id="sort"
+                      value={urlSort || 'default'}
+                      onChange={(e) =>
+                        handleSortChange(e.target.value)
+                      }
+                      className="appearance-none border border-gray-200 bg-white pl-4 pr-9 py-2.5 font-body text-sm text-rich-black outline-none transition-colors hover:border-gray-400 focus:border-rich-black cursor-pointer"
+                    >
+                      <option value="default">
+                        Featured
+                      </option>
 
-                    <option value="newest">
-                      Newest
-                    </option>
+                      <option value="newest">
+                        Newest
+                      </option>
 
-                    <option value="price-low">
-                      Price: Low to High
-                    </option>
+                      <option value="price-low">
+                        Price: Low to High
+                      </option>
 
-                    <option value="price-high">
-                      Price: High to Low
-                    </option>
-                  </select>
+                      <option value="price-high">
+                        Price: High to Low
+                      </option>
+                    </select>
+
+                    <svg
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-cool-gray"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
 
                 </div>
               </div>
 
               {/* CATEGORY FILTERS */}
               <div>
-                <div className="flex flex-wrap gap-2">
+                <div className="sela-scroll-x flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1">
 
                   {/* All */}
                   <button
                     type="button"
                     onClick={clearCategories}
-                    className={`px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors ${
+                    className={`shrink-0 px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors duration-200 ${
                       selectedCategories.length === 0
                         ? 'bg-rich-black text-white border-rich-black'
                         : 'bg-white text-rich-black border-gray-200 hover:border-rich-black'
@@ -318,7 +379,7 @@ export function Shop() {
                         onClick={() =>
                           toggleCategory(category.slug)
                         }
-                        className={`px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors ${
+                        className={`shrink-0 px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors duration-200 ${
                           selected
                             ? 'bg-rich-black text-white border-rich-black'
                             : 'bg-white text-rich-black border-gray-200 hover:border-rich-black'
@@ -340,15 +401,12 @@ export function Shop() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-10">
 
               {Array.from({ length: 8 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="animate-pulse"
-                >
-                  <div className="aspect-[3/4] bg-gray-100" />
+                <div key={index}>
+                  <div className="sela-shimmer aspect-[3/4]" />
 
-                  <div className="h-4 bg-gray-100 mt-4 w-3/4" />
+                  <div className="sela-shimmer h-4 mt-4 w-3/4" />
 
-                  <div className="h-4 bg-gray-100 mt-2 w-1/3" />
+                  <div className="sela-shimmer h-4 mt-2 w-1/3" />
                 </div>
               ))}
 
@@ -365,9 +423,9 @@ export function Shop() {
 
               <button
                 onClick={() => window.location.reload()}
-                className="mt-4 font-body text-sm text-rich-black underline underline-offset-4 hover:text-gold"
+                className="mt-6 inline-block border border-rich-black px-6 py-3 font-body text-xs uppercase tracking-wider text-rich-black hover:bg-rich-black hover:text-white transition-colors"
               >
-                Try again
+                Try Again
               </button>
 
             </div>
@@ -377,18 +435,33 @@ export function Shop() {
           {!loading &&
             !error &&
             sortedProducts.length === 0 && (
-              <div className="py-20 text-center">
+              <div className="py-24 text-center">
 
-                <p className="font-body text-gray-500">
-                  No products found in this category.
+                <svg
+                  className="mx-auto mb-6 h-10 w-10 text-gray-300"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                >
+                  <path d="M12 3l4 4h-8l4-4Z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M6 7h12l1.5 13.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5L6 7Z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+
+                <p className="font-display text-xl text-rich-black mb-2">
+                  No products found
+                </p>
+
+                <p className="font-body text-sm text-cool-gray mb-6">
+                  Nothing matches this category right now.
                 </p>
 
                 {selectedCategories.length > 0 && (
                   <button
                     onClick={clearCategories}
-                    className="mt-4 font-body text-sm text-rich-black underline underline-offset-4 hover:text-gold"
+                    className="inline-block bg-rich-black text-white px-6 py-3 font-body text-xs uppercase tracking-wider hover:bg-gray-800 transition-colors"
                   >
-                    Clear filters
+                    Clear Filters
                   </button>
                 )}
 
@@ -401,11 +474,14 @@ export function Shop() {
             sortedProducts.length > 0 && (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-10">
 
-                {sortedProducts.map((product) => (
-                  <ProductCard
+                {sortedProducts.map((product, index) => (
+                  <div
                     key={product.id}
-                    product={product}
-                  />
+                    className="sela-reveal"
+                    style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+                  >
+                    <ProductCard product={product} />
+                  </div>
                 ))}
 
               </div>

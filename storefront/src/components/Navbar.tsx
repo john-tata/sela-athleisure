@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from 'react';
-import { Search, ShoppingBag, Menu, X } from 'lucide-react';
+import { Search, ShoppingBag, Menu, X, User } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navLinks = [
   { label: 'Shop', href: '/shop' },
@@ -15,8 +16,11 @@ export function Navbar() {
   const location = useLocation();
 const isHome = location.pathname === "/";
 
+const { user } = useAuth();
+
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
   const itemCount = useCartStore((s) => s.itemCount);
 const openCart = useCartStore((s) => s.open);
 
@@ -70,6 +74,16 @@ const openCart = useCartStore((s) => s.open);
           <button className={`transition-colors duration-300 hover:text-gold ${(scrolled || !isHome) ? 'text-rich-black' : 'text-white'}`}>
             <Search size={20} />
           </button>
+          <Link
+  to={user ? '/account' : '/login'}
+  className={`transition-colors duration-300 hover:text-gold ${
+    (scrolled || !isHome) ? 'text-rich-black' : 'text-white'
+  }`}
+  aria-label={user ? 'My Account' : 'Login'}
+>
+  <User size={20} />
+</Link>
+
           <button
             onClick={openCart}
             className={`relative transition-colors duration-300 hover:text-gold ${(scrolled || !isHome) ? 'text-rich-black' : 'text-white'}`}
@@ -100,21 +114,33 @@ const openCart = useCartStore((s) => s.open);
           <button onClick={() => setMobileOpen(false)} className="text-rich-black"><X size={24} /></button>
         </div>
         <div className="flex flex-col items-center justify-center gap-6 pt-16">
-          {navLinks.map((link, i) => (
-            <Link
-             key={link.label}
-              to={link.href}
-               onClick={() => setMobileOpen(false)}
-              className="font-display text-[32px] font-normal text-rich-black"
-              style={{
-                 animation: `fadeIn 0.4s ease ${i * 0.1}s forwards`,
-                  opacity: 0,
-               }}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
+  {navLinks.map((link, i) => (
+    <Link
+      key={link.label}
+      to={link.href}
+      onClick={() => setMobileOpen(false)}
+      className="font-display text-[32px] font-normal text-rich-black"
+      style={{
+        animation: `fadeIn 0.4s ease ${i * 0.1}s forwards`,
+        opacity: 0,
+      }}
+    >
+      {link.label}
+    </Link>
+  ))}
+
+  <Link
+    to={user ? '/account' : '/login'}
+    onClick={() => setMobileOpen(false)}
+    className="font-display text-[32px] font-normal text-rich-black"
+    style={{
+      animation: `fadeIn 0.4s ease 0.5s forwards`,
+      opacity: 0,
+    }}
+  >
+    {user ? 'My Account' : 'Login'}
+  </Link>
+</div>
       </div>
 
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>

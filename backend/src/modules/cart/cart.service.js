@@ -2,7 +2,7 @@ const { supabaseAdmin } = require('../../config/supabase');
 const AppError = require('../../utils/AppError');
 
 const FREE_SHIPPING_THRESHOLD = 30000;
-const SHIPPING_COST = 3500;
+const SHIPPING_COST = 0;
 
 function calculateTotals(items) {
   const subtotal = items.reduce((sum, item) => {
