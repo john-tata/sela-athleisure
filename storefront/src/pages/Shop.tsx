@@ -222,7 +222,7 @@ export function Shop() {
 };
 
   return (
-    <main className="min-h-screen bg-white pt-[60px] lg:pt-[72px]">
+    <main className="min-h-screen bg-background pt-[60px] lg:pt-[72px]">
       <style>{`
         @keyframes selaFadeUp {
           from { opacity: 0; transform: translateY(14px); }

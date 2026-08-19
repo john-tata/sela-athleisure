@@ -331,7 +331,6 @@ active:scale-100
     </div>
     
   </div>
-console.log(res.data.variants);
 </div>
 
         </div>

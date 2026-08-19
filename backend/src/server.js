@@ -19,8 +19,19 @@ const allowedOrigins = [
   'http://localhost:4173',
   'http://localhost:5174',
   'http://localhost:5175',
-  process.env.FRONTEND_URL,
+
+  // Production storefront
+  'https://selaathleisure.com',
+  'https://www.selaathleisure.com',
+
+  // Existing Vercel storefront
+  'https://sela-storefront-lac.vercel.app',
+
+  // Production admin
   process.env.ADMIN_URL,
+
+  // Any additional frontend URL configured in Render
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use(
