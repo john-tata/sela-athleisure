@@ -102,7 +102,7 @@ export const useCartStore = create<CartState>((set) => ({
       };
 
       const res = await api.addToCart(finalPayload);
-      console.log('🛒 CART ADD RESPONSE:', res);
+
       if (res.success) {
         const {
           items,
@@ -123,6 +123,7 @@ export const useCartStore = create<CartState>((set) => ({
       }
     } catch (err) {
       console.error('Failed to add item:', err);
+      throw err;
     } finally {
       set({ isLoading: false });
     }

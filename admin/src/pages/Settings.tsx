@@ -16,6 +16,7 @@ const [shippingSaving, setShippingSaving] = useState(false);
 const [newZone, setNewZone] = useState({
   name: '',
   state: '',
+  description: '',
   shipping_fee: '',
   free_shipping_threshold: '',
 });
@@ -45,6 +46,7 @@ async function addShippingZone() {
     await shippingApi.createZone({
       name: newZone.name,
       state: newZone.state || null,
+      description: newZone.description || null,
       shipping_fee: Number(newZone.shipping_fee),
       free_shipping_threshold:
         newZone.free_shipping_threshold === ''
@@ -56,6 +58,7 @@ async function addShippingZone() {
     setNewZone({
       name: '',
       state: '',
+      description: '',
       shipping_fee: '',
       free_shipping_threshold: '',
     });
@@ -275,6 +278,12 @@ async function deleteShippingZone(id: string) {
                 {zone.state || 'All other locations'}
               </p>
 
+              {zone.description && (
+                <p className="text-sm text-gray-500 mt-2 leading-6">
+                  {zone.description}
+                </p>
+              )}
+
               <div className="flex gap-5 mt-3 text-sm">
                 <span>
                   Shipping:{' '}
@@ -317,7 +326,7 @@ async function deleteShippingZone(id: string) {
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <input
-        placeholder="Zone name e.g. Abuja"
+        placeholder="Zone name e.g. Abuja (Area A)"
         value={newZone.name}
         onChange={(e) =>
           setNewZone({
@@ -368,6 +377,19 @@ async function deleteShippingZone(id: string) {
         className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg"
       />
     </div>
+
+    <textarea
+      rows={3}
+      placeholder="Neighborhoods e.g. Apo, Kaura, Guzape, Prince & Princess..."
+      value={newZone.description}
+      onChange={(e) =>
+        setNewZone({
+          ...newZone,
+          description: e.target.value,
+        })
+      }
+      className="mt-4 w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg resize-none"
+    />
 
     <button
       type="button"
@@ -425,4 +447,3 @@ async function deleteShippingZone(id: string) {
     </div>
   );
 }
-

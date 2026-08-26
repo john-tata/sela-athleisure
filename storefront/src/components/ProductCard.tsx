@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Heart, ShoppingBag, Check } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
+import { api } from "@/lib/api";
 
 interface ProductCardProps {
   product: {
@@ -17,10 +18,45 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [justAdded, setJustAdded] = useState(false);
-  const addItem = useCartStore((s) => s.addItem);
+
+const [isHovered, setIsHovered] = useState(false);
+
+const [isWishlisted, setIsWishlisted] = useState(false);
+
+const [wishlistLoading, setWishlistLoading] = useState(false);
+
+const [justAdded, setJustAdded] = useState(false);
+
+const addItem = useCartStore((s) => s.addItem);
+
+  useEffect(() => {
+  let cancelled = false;
+
+  const checkWishlist = async () => {
+    const token = localStorage.getItem("sb_token");
+
+    // Favorites require a logged-in user
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await api.checkFavorite(product.id);
+
+      if (!cancelled) {
+        setIsWishlisted(Boolean(response.isFavorite));
+      }
+    } catch (error) {
+      console.error("Failed to check favorite:", error);
+    }
+  };
+
+  checkWishlist();
+
+  return () => {
+    cancelled = true;
+  };
+}, [product.id]);
 
   const firstImage = product.images?.[0];
   const hasComparePrice =
@@ -58,11 +94,44 @@ const handleQuickAdd = useCallback(
   [firstAvailableVariant, product, addItem]
 );
 
-  const handleWishlist = useCallback((e: React.MouseEvent) => {
+const handleWishlist = useCallback(
+  async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsWishlisted((prev) => !prev);
-  }, []);
+
+    const token = localStorage.getItem("sb_token");
+
+    if (!token) {
+      alert("Please log in to save favorites.");
+      return;
+    }
+
+    if (wishlistLoading) return;
+
+    setWishlistLoading(true);
+
+    try {
+      if (isWishlisted) {
+        await api.removeFavorite(product.id);
+        setIsWishlisted(false);
+      } else {
+        await api.addFavorite(product.id);
+        setIsWishlisted(true);
+      }
+    } catch (error) {
+      console.error("Wishlist error:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to update favorite."
+      );
+    } finally {
+      setWishlistLoading(false);
+    }
+  },
+  [isWishlisted, wishlistLoading, product.id]
+);
 
   const badge = product.is_bestseller ? 'Bestseller' : undefined;
 
@@ -99,10 +168,11 @@ const handleQuickAdd = useCallback(
 
           {/* Wishlist Button */}
           <button
-            onClick={handleWishlist}
-            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md"
-            aria-label="Add to wishlist"
-          >
+  onClick={handleWishlist}
+  disabled={wishlistLoading}
+  className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md disabled:cursor-wait disabled:opacity-60"
+  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+>
             <Heart
               className={`h-4 w-4 transition-colors duration-200 ${
                 isWishlisted

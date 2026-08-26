@@ -170,18 +170,39 @@ CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(order_number);
 
 -- ============================================================
+-- SHIPPING ZONES
+-- ============================================================
+CREATE TABLE IF NOT EXISTS shipping_zones (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  state text,
+  description text,
+  shipping_fee numeric(10,2) NOT NULL DEFAULT 0,
+  free_shipping_threshold numeric(10,2),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_shipping_zones_active ON shipping_zones(is_active);
+CREATE INDEX IF NOT EXISTS idx_shipping_zones_state ON shipping_zones(state);
+
+-- ============================================================
 -- ORDER ITEMS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS order_items (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id uuid REFERENCES orders(id) ON DELETE CASCADE NOT NULL,
   product_id uuid REFERENCES products(id) NOT NULL,
-  variant_id uuid REFERENCES product_variants(id) NOT NULL,
+  variant_id uuid REFERENCES product_variants(id),
   product_name text NOT NULL,
   variant_name text NOT NULL,
   quantity integer NOT NULL,
   unit_price numeric(10,2) NOT NULL
 );
+
+COMMENT ON COLUMN public.order_items.variant_id IS
+'Nullable for simple products; populated for variant-based products.';
 
 -- ============================================================
 -- HERO SLIDES (CMS)

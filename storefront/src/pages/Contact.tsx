@@ -49,7 +49,7 @@ export default function Contact() {
                   href="mailto:hello@sela.com"
                   className="mt-2 inline-block text-rich-black hover:text-gold"
                 >
-                  hello@sela.com
+                  selaathleisure@gmail.com
                 </a>
               </div>
 
@@ -61,7 +61,7 @@ export default function Contact() {
                   href="#"
                   className="mt-2 inline-block text-rich-black hover:text-gold"
                 >
-                  @selathleisure
+                  @selaathleisure
                 </a>
               </div>
 

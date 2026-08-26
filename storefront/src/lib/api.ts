@@ -77,6 +77,24 @@ updateCartItem: (itemId: string, quantity: number) =>
     method: 'PUT',
     body: JSON.stringify({ quantity }),
   }),
+  
+  // Favorites
+getFavorites: () =>
+  fetchApi('/favorites'),
+
+checkFavorite: (productId: string) =>
+  fetchApi(`/favorites/${productId}`),
+
+addFavorite: (productId: string) =>
+  fetchApi('/favorites', {
+    method: 'POST',
+    body: JSON.stringify({ productId }),
+  }),
+
+removeFavorite: (productId: string) =>
+  fetchApi(`/favorites/${productId}`, {
+    method: 'DELETE',
+  }),
 
  // Orders
 createOrder: (orderData: any) =>
@@ -96,7 +114,20 @@ getOrders: () => fetchApi('/orders'),
 getMyOrders: () => fetchApi('/orders/my-orders'),
 
 //Shipping
-calculateShipping: (state: string, subtotal: number) =>
+getShippingZones: () => fetchApi('/shipping/available'),
+
+calculateShipping: (params: { zoneId?: string; state?: string }, subtotal: number) => {
+  const query = new URLSearchParams({
+    subtotal: String(subtotal),
+  });
+
+  if (params.zoneId) query.set('zoneId', params.zoneId);
+  if (params.state) query.set('state', params.state);
+
+  return fetchApi(`/shipping/calculate?${query.toString()}`);
+},
+
+calculateShippingByState: (state: string, subtotal: number) =>
   fetchApi(
     `/shipping/calculate?state=${encodeURIComponent(state)}&subtotal=${encodeURIComponent(subtotal)}`
   ),

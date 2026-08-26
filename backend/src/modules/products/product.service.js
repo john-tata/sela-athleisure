@@ -1,6 +1,74 @@
 const { supabaseAdmin } = require('../../config/supabase');
 const AppError = require('../../utils/AppError');
 
+function slugPart(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function normalizeVariants(variants, productSlug) {
+  if (!Array.isArray(variants)) return [];
+
+  const seen = new Set();
+
+  return variants
+    .map((variant) => ({
+      ...variant,
+      sku: String(variant.sku || '').trim(),
+      size: String(variant.size || '').trim(),
+      color: String(variant.color || '').trim(),
+      color_hex: variant.color_hex || '#000000',
+      stock_quantity: Number(variant.stock_quantity || 0),
+      price_adjustment: Number(variant.price_adjustment || 0),
+      image_url: variant.image_url || null,
+    }))
+    .filter((variant) => variant.size || variant.color || variant.sku || variant.image_url)
+    .map((variant) => {
+      if (!variant.size && !variant.color) {
+        throw new AppError(
+          'Each variant needs at least a size or color.',
+          400,
+          'INVALID_VARIANT'
+        );
+      }
+
+      if (variant.stock_quantity < 0 || variant.price_adjustment < 0) {
+        throw new AppError(
+          'Variant stock and price adjustment cannot be negative.',
+          400,
+          'INVALID_VARIANT'
+        );
+      }
+
+      const key = `${variant.size.toLowerCase()}::${variant.color.toLowerCase()}`;
+      if (seen.has(key)) {
+        throw new AppError(
+          `Duplicate variant: ${variant.color || 'Color'} ${variant.size || 'Size'}`.trim(),
+          400,
+          'DUPLICATE_VARIANT'
+        );
+      }
+      seen.add(key);
+
+      return {
+        ...variant,
+        sku:
+          variant.sku ||
+          [
+            productSlug,
+            slugPart(variant.color),
+            slugPart(variant.size),
+          ]
+            .filter(Boolean)
+            .join('-')
+            .toUpperCase(),
+      };
+    });
+}
+
 // ============================================
 // EXISTING: Storefront queries (PRESERVED)
 // ============================================
@@ -19,7 +87,8 @@ async function getProducts({ category, limit = 20, offset = 0, sort = 'newest' }
     alt_text
   )
 `)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('is_archived', false);
 
   if (category) {
     const { data: cat } = await supabaseAdmin
@@ -71,6 +140,7 @@ async function searchProducts(query, { limit = 20, offset = 0 }) {
       product_images(*)
     `)
     .eq('is_active', true)
+    .eq('is_archived', false)
     .textSearch('search_vector', query, { type: 'websearch' })
     .range(offset, offset + limit - 1);
 
@@ -84,6 +154,7 @@ async function searchProducts(query, { limit = 20, offset = 0 }) {
 
 async function createProduct(productData) {
   const { images, variants =[], ...productFields } = productData;
+  const normalizedVariants = normalizeVariants(variants, productFields.slug);
 
   // 1. Insert product
   const { data: product, error } = await supabaseAdmin
@@ -97,6 +168,7 @@ async function createProduct(productData) {
       category_id: productFields.category_id || null,
       is_featured: productFields.is_featured || false,
       is_active: productFields.is_active !== false,
+      is_archived: false,
       inventory_quantity: productFields.inventory_quantity || 0,
     })
     .select()
@@ -134,8 +206,8 @@ async function createProduct(productData) {
     }
   }
 
-  if (variants && variants.length > 0) {
-    const variantRows = variants.map(v => ({
+  if (normalizedVariants.length > 0) {
+    const variantRows = normalizedVariants.map(v => ({
       product_id: product.id,
       sku: v.sku,
       size: v.size,
@@ -172,6 +244,10 @@ async function updateProduct(slug, updateData) {
     .single();
 
   if (!current) throw new AppError('Product not found', 404, 'NOT_FOUND');
+  const normalizedVariants = normalizeVariants(
+    variants,
+    productFields.slug || current.slug
+  );
 
   // 2. Build update payload (only include defined fields)
   const payload = {};
@@ -183,6 +259,9 @@ async function updateProduct(slug, updateData) {
   if (productFields.category_id !== undefined) payload.category_id = productFields.category_id || null;
   if (productFields.is_featured !== undefined) payload.is_featured = productFields.is_featured;
   if (productFields.is_active !== undefined) payload.is_active = productFields.is_active;
+  if (productFields.is_archived !== undefined) {
+    payload.is_archived = productFields.is_archived;
+  }
   if (productFields.inventory_quantity !== undefined) payload.inventory_quantity = productFields.inventory_quantity;
   payload.updated_at = new Date().toISOString();
 
@@ -255,7 +334,7 @@ if (Array.isArray(variants)) {
   // UPDATE existing / CREATE new
   // --------------------------------------------
 
-  for (const v of variants) {
+  for (const v of normalizedVariants) {
     const variantData = {
       sku: v.sku ?? '',
       size: v.size ?? '',
@@ -353,6 +432,97 @@ async function deleteProduct(slug) {
   return { deleted: true, id: data.id };
 }
 
+async function archiveProduct(slug) {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .update({
+      is_archived: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('slug', slug)
+    .select('id, slug, name, is_archived')
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  }
+
+  if (!data) {
+    throw new AppError('Product not found', 404, 'NOT_FOUND');
+  }
+
+  return data;
+}
+
+async function restoreProduct(slug) {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .update({
+      is_archived: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('slug', slug)
+    .select('id, slug, name, is_archived')
+    .single();
+
+  if (error) {
+    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  }
+
+  if (!data) {
+    throw new AppError('Product not found', 404, 'NOT_FOUND');
+  }
+
+  return data;
+}
+
+async function getArchivedProducts() {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select(`
+      *,
+      categories(name, slug),
+      product_images(
+        id,
+        url,
+        is_primary,
+        sort_order,
+        alt_text
+      ),
+      product_variants(*)
+    `)
+    .eq('is_archived', true)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  }
+
+  return data ? data.map(normalizeProduct) : [];
+}
+async function getAdminProducts() {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select(`
+      *,
+      categories(name, slug),
+      product_images(
+        id,
+        url,
+        is_primary,
+        sort_order,
+        alt_text
+      ),
+      product_variants(*)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  }
+
+  return data ? data.map(normalizeProduct) : [];
+}
 // ============================================
 // HELPER: Normalize product response
 // ============================================
@@ -372,6 +542,7 @@ function normalizeProduct(p) {
     sku: p.sku,
     is_featured: p.is_featured,
     is_active: p.is_active,
+    is_archived: p.is_archived,
     created_at: p.created_at,
     images: (p.product_images || []).map(img => ({
       id: img.id,
@@ -397,12 +568,19 @@ function normalizeProduct(p) {
 }
 
 module.exports = {
-  // Existing (storefront)
+  // Storefront
   getProducts,
   getProductBySlug,
   searchProducts,
-  // New (admin)
+
+  // Admin
+  getAdminProducts,
   createProduct,
   updateProduct,
   deleteProduct,
+
+  // Archive
+  archiveProduct,
+  restoreProduct,
+  getArchivedProducts,
 };

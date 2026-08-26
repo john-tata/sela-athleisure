@@ -28,14 +28,36 @@ async function getZoneById(id) {
   return data;
 }
 
+async function getAvailableZones() {
+  const { data, error } = await supabaseAdmin
+    .from('shipping_zones')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  }
+
+  return data || [];
+}
+
 async function createZone(data) {
-  const { name, state, shipping_fee, free_shipping_threshold, is_active } = data;
+  const {
+    name,
+    state,
+    description,
+    shipping_fee,
+    free_shipping_threshold,
+    is_active,
+  } = data;
 
   const { data: zone, error } = await supabaseAdmin
     .from('shipping_zones')
     .insert({
       name,
       state: state || null,
+      description: description || null,
       shipping_fee: Number(shipping_fee),
       free_shipping_threshold:
         free_shipping_threshold === null ||
@@ -60,6 +82,7 @@ async function updateZone(id, data) {
 
   if (data.name !== undefined) updates.name = data.name;
   if (data.state !== undefined) updates.state = data.state || null;
+  if (data.description !== undefined) updates.description = data.description || null;
   if (data.shipping_fee !== undefined) {
     updates.shipping_fee = Number(data.shipping_fee);
   }
@@ -109,7 +132,7 @@ async function deleteZone(id) {
   return { deleted: true };
 }
 
-async function calculateShipping({ state, subtotal }) {
+async function calculateShipping({ zoneId, state, subtotal }) {
   const normalizedState = String(state || '').trim().toLowerCase();
   const amount = Number(subtotal);
 
@@ -138,12 +161,20 @@ async function calculateShipping({ state, subtotal }) {
     );
   }
 
-  // First try an exact state match.
-  let zone = zones.find(
-    (item) =>
-      item.state &&
-      item.state.trim().toLowerCase() === normalizedState
-  );
+  let zone = null;
+
+  if (zoneId) {
+    zone = zones.find((item) => item.id === zoneId);
+  }
+
+  // First try an exact state match for older checkout clients.
+  if (!zone) {
+    zone = zones.find(
+      (item) =>
+        item.state &&
+        item.state.trim().toLowerCase() === normalizedState
+    );
+  }
 
   // Otherwise use the fallback zone where state is NULL.
   if (!zone) {
@@ -170,6 +201,8 @@ async function calculateShipping({ state, subtotal }) {
     zone: {
       id: zone.id,
       name: zone.name,
+      state: zone.state,
+      description: zone.description,
     },
     subtotal: amount,
     shipping,
@@ -182,6 +215,7 @@ async function calculateShipping({ state, subtotal }) {
 module.exports = {
   getAllZones,
   getZoneById,
+  getAvailableZones,
   createZone,
   updateZone,
   deleteZone,

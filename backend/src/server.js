@@ -92,6 +92,7 @@ app.use(express.json());
 // ==========================================
 
 const productRoutes = require('./modules/products/product.routes');
+const favoriteRoutes = require('./modules/favorites/favorite.routes');
 const categoryRoutes = require('./modules/categories/category.routes');
 const cartRoutes = require('./modules/cart/cart.routes');
 const orderRoutes = require('./modules/orders/order.routes');
@@ -110,6 +111,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/v1/favorites', favoriteRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/cart', cartRoutes);

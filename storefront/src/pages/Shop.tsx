@@ -30,23 +30,27 @@ interface Product {
   is_bestseller?: boolean;
 }
 
-const categoryOptions = [
-  { name: 'Sports Bras', slug: 'sports-bras' },
-  { name: 'Leggings', slug: 'leggings' },
-  { name: 'Shorts', slug: 'shorts' },
-  { name: 'Sets', slug: 'sets' },
-  { name: 'Accessories', slug: 'accessories' },
-];
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  image_url?: string | null;
+  sort_order: number;
+  product_count?: number;
+}
 
 export function Shop() {
   const { slug } = useParams();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlSort = searchParams.get('sort');
+  const urlSearch = searchParams.get('search') || '';
   const sort = urlSort || 'newest';
 
   const urlCategory = searchParams.get('category');
@@ -60,9 +64,7 @@ export function Shop() {
     ? urlCategory.split(',').filter(Boolean)
     : [];
 
-  const isNewArrivals = urlSort === 'newest';
-
-  // Purely presentational state — entrance animation + sticky toolbar depth.
+const isNewArrivals = urlSort === 'newest';
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -76,7 +78,21 @@ export function Shop() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+useEffect(() => {
+  const loadCategories = async () => {
+    try {
+      const res = await api.getCategories();
 
+      if (res.status === 'success') {
+        setCategories(res.data?.categories || []);
+      }
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+    }
+  };
+
+  loadCategories();
+}, []);
   /*
    * LOAD PRODUCTS
    */
@@ -111,6 +127,14 @@ export function Shop() {
    */
   const sortedProducts = useMemo(() => {
     let result = [...products];
+
+// Search filtering
+    if (urlSearch.trim()) {
+      const q = urlSearch.trim().toLowerCase();
+      result = result.filter((product) =>
+        product.name.toLowerCase().includes(q)
+      );
+    }
 
     // Category filtering
     if (selectedCategories.length > 0) {
@@ -154,72 +178,44 @@ export function Shop() {
     }
 
     return result;
-  }, [products, sort, urlCategory, slug]);
+  }, [products, sort, urlCategory, slug, urlSearch]);
 
   /*
    * CATEGORY FILTER TOGGLE
    */
-  const toggleCategory = (categorySlug: string) => {
-    const currentCategories = [...selectedCategories];
+const toggleCategory = (categorySlug: string) => {
+  const currentCategories = [...selectedCategories];
+  const exists = currentCategories.includes(categorySlug);
+  const nextCategories = exists
+    ? currentCategories.filter((category) => category !== categorySlug)
+    : [...currentCategories, categorySlug];
 
-    const exists = currentCategories.includes(categorySlug);
+  const nextParams: Record<string, string> = {};
+  if (nextCategories.length > 0) nextParams.category = nextCategories.join(',');
+  if (urlSort) nextParams.sort = urlSort;
+  if (urlSearch) nextParams.search = urlSearch;
 
-    const nextCategories = exists
-      ? currentCategories.filter(
-          (category) => category !== categorySlug
-        )
-      : [...currentCategories, categorySlug];
-
-    const nextParams: Record<string, string> = {};
-
-    if (nextCategories.length > 0) {
-      nextParams.category = nextCategories.join(',');
-    }
-
-    if (urlSort) {
-      nextParams.sort = urlSort;
-    }
-
-    setSearchParams(nextParams);
-  };
-
-  /*
-   * CLEAR CATEGORY FILTER
-   */
-  const clearCategories = () => {
-    const nextParams: Record<string, string> = {};
-
-    if (urlSort) {
-      nextParams.sort = urlSort;
-    }
-
-    setSearchParams(nextParams);
-  };
-
-  /*
-   * SORT CHANGE
-   */
-  const handleSortChange = (value: string) => {
-    const nextParams: Record<string, string> = {};
-
-    if (selectedCategories.length > 0) {
-      nextParams.category = selectedCategories.join(',');
-    }
-
-    if (value !== 'default') {
-      nextParams.sort = value;
-    }
-
-    setSearchParams(nextParams);
-  };
-
-  const collectionNames: Record<string, string> = {
-  'sports-bras': 'Sports Bras',
-  leggings: 'Leggings',
-  shorts: 'Shorts',
-  sets: 'Sets',
-  accessories: 'Accessories',
+  setSearchParams(nextParams);
 };
+
+const clearCategories = () => {
+  const nextParams: Record<string, string> = {};
+  if (urlSort) nextParams.sort = urlSort;
+  if (urlSearch) nextParams.search = urlSearch;
+  setSearchParams(nextParams);
+};
+
+const handleSortChange = (value: string) => {
+  const nextParams: Record<string, string> = {};
+  if (selectedCategories.length > 0) nextParams.category = selectedCategories.join(',');
+  if (value !== 'default') nextParams.sort = value;
+  if (urlSearch) nextParams.search = urlSearch;
+  setSearchParams(nextParams);
+};
+
+  const currentCategory = categories.find(
+  (category) => category.slug === slug
+);
 
   return (
     <main className="min-h-screen bg-background pt-[60px] lg:pt-[72px]">
@@ -240,8 +236,21 @@ export function Shop() {
           background-size: 800px 100%;
           animation: selaShimmer 1.6s ease-in-out infinite;
         }
+
         .sela-scroll-x::-webkit-scrollbar { display: none; }
         .sela-scroll-x { -ms-overflow-style: none; scrollbar-width: none; }
+        .sela-pill {
+  position: relative;
+  transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+.sela-pill:not(.sela-pill-active):hover {
+  border-color: transparent;
+  box-shadow: 0 0 0 1px rgba(197, 165, 114, 0.4), 0 0 16px 2px rgba(197, 165, 114, 0.35);
+  color: #1a1a1a;
+}
+.sela-pill-active {
+  box-shadow: 0 0 14px 1px rgba(0, 0, 0, 0.25);
+}
       `}</style>
 
       {/* SHOP HEADER */}
@@ -260,7 +269,7 @@ export function Shop() {
 
             <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-rich-black">
               {slug
-                ? collectionNames[slug] || 'Collection'
+                ? currentCategory?.name || 'Collection'
                 : isNewArrivals
                   ? 'New Arrivals'
                   : 'Shop'}
@@ -268,7 +277,7 @@ export function Shop() {
 
             <p className="font-body text-sm text-cool-gray mt-4 max-w-xl">
               {slug
-                ? `Explore our ${collectionNames[slug]?.toLowerCase() || 'collection'} collection.`
+                ? `Explore our ${currentCategory?.name?.toLowerCase() || 'collection'} collection.`
                 : isNewArrivals
                   ? 'Discover the latest pieces from SELA.'
                   : 'Explore the SELA collection.'}
@@ -355,38 +364,36 @@ export function Shop() {
 
                   {/* All */}
                   <button
-                    type="button"
-                    onClick={clearCategories}
-                    className={`shrink-0 px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors duration-200 ${
-                      selectedCategories.length === 0
-                        ? 'bg-rich-black text-white border-rich-black'
-                        : 'bg-white text-rich-black border-gray-200 hover:border-rich-black'
-                    }`}
-                  >
-                    All
-                  </button>
+  type="button"
+  onClick={clearCategories}
+  style={
+    selectedCategories.length === 0
+      ? { backgroundColor: '#0A0A0A', color: '#ffffff', borderColor: '#0A0A0A' }
+      : { backgroundColor: '#ffffff', color: '#0A0A0A', borderColor: '#e5e7eb' }
+  }
+  className="sela-pill shrink-0 px-4 py-2 border font-body text-xs uppercase tracking-[0.08em]"
+>
+  All
+</button>
 
                   {/* Categories */}
-                  {categoryOptions.map((category) => {
-                    const selected = selectedCategories.includes(
-                      category.slug
-                    );
+                  {categories.map((category) => {
+  const selected = selectedCategories.includes(category.slug);
 
-                    return (
-                      <button
-                        key={category.slug}
-                        type="button"
-                        onClick={() =>
-                          toggleCategory(category.slug)
-                        }
-                        className={`shrink-0 px-4 py-2 border font-body text-xs uppercase tracking-[0.08em] transition-colors duration-200 ${
-                          selected
-                            ? 'bg-rich-black text-white border-rich-black'
-                            : 'bg-white text-rich-black border-gray-200 hover:border-rich-black'
-                        }`}
-                      >
-                        {category.name}
-                      </button>
+  return (
+    <button
+      key={category.slug}
+      type="button"
+      onClick={() => toggleCategory(category.slug)}
+      style={
+        selected
+          ? { backgroundColor: '#0A0A0A', color: '#ffffff', borderColor: '#0A0A0A' }
+          : { backgroundColor: '#ffffff', color: '#0A0A0A', borderColor: '#e5e7eb' }
+      }
+      className="sela-pill shrink-0 px-4 py-2 border font-body text-xs uppercase tracking-[0.08em]"
+    >
+      {category.name}
+    </button>
                     );
                   })}
 

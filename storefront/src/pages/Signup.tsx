@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,10 +16,11 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  useEffect(() => {
   if (user) {
-    navigate("/account");
-    return null;
+    navigate("/account", { replace: true });
   }
+}, [user, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,7 +69,7 @@ export default function Signup() {
   };
 
   return (
-    <main className="min-h-screen pt-[100px] px-4 sm:px-6 lg:px-12 pb-20">
+    <main className="min-h-screen pt-[100px] px-4 sm:px-6 lg:px-12 pb-32 overflow-visible">
       <div className="max-w-md mx-auto">
         <div className="text-center mb-10">
           <h1 className="font-display text-4xl tracking-wide text-rich-black">
@@ -79,7 +80,7 @@ export default function Signup() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -165,12 +166,12 @@ export default function Signup() {
           )}
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-rich-black text-white py-3 uppercase tracking-wider text-sm disabled:opacity-50"
-          >
-            {loading ? "Creating account..." : "Create Account"}
-          </button>
+  type="submit"
+  disabled={loading}
+   className="w-full bg-black text-white py-3 uppercase tracking-wider text-sm disabled:opacity-50 hover:bg-gray-900 transition-colors"
+>
+  {loading ? "Creating account..." : "Create Account"}
+</button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-8">

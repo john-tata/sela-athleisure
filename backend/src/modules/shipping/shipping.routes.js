@@ -10,6 +10,7 @@ const shippingService = require('./shipping.service');
 const zoneSchema = z.object({
   name: z.string().min(1),
   state: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
   shipping_fee: z.coerce.number().min(0),
   free_shipping_threshold: z
     .union([
@@ -27,6 +28,18 @@ const updateZoneSchema = zoneSchema.partial();
 // ============================================
 // ADMIN — Shipping zones
 // ============================================
+
+router.get(
+  '/available',
+  catchAsync(async (req, res) => {
+    const zones = await shippingService.getAvailableZones();
+
+    res.json({
+      status: 'success',
+      data: { zones },
+    });
+  })
+);
 
 router.get(
   '/zones',
@@ -100,6 +113,7 @@ router.get(
   '/calculate',
   catchAsync(async (req, res) => {
     const result = await shippingService.calculateShipping({
+      zoneId: req.query.zoneId,
       state: req.query.state,
       subtotal: req.query.subtotal,
     });

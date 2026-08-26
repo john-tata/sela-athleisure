@@ -33,21 +33,27 @@ async function createOrder({
   if (item.variantId) {
     const { data: variantData } = await supabaseAdmin
       .from('product_variants')
-      .select('id, size, color, price_adjustment, stock_quantity')
+      .select('id, product_id, size, color, price_adjustment, stock_quantity, is_active')
       .eq('id', item.variantId)
       .single();
 
-    if (!variantData) {
+    variant = variantData;
+
+    if (!variant) {
       throw new AppError('Invalid product variant', 400, 'INVALID_VARIANT');
     }
-if (variant.stock_quantity < item.quantity) {
-    throw new AppError(
-        "Not enough stock",
+
+    if (variant.is_active === false || variant.product_id !== item.productId) {
+      throw new AppError('Invalid product variant', 400, 'INVALID_VARIANT');
+    }
+
+    if (variant.stock_quantity < item.quantity) {
+      throw new AppError(
+        'Not enough stock',
         400,
-        "OUT_OF_STOCK"
-    );
-}
-    variant = variantData;
+        'OUT_OF_STOCK'
+      );
+    }
   }
 
   let price = Number(product.base_price);
@@ -73,6 +79,7 @@ if (variant.stock_quantity < item.quantity) {
     // Calculate shipping dynamically based on
   // the customer's state and current subtotal.
   const shippingResult = await shippingService.calculateShipping({
+    zoneId: shippingAddress?.shipping_zone_id,
     state: shippingAddress?.state,
     subtotal,
   });

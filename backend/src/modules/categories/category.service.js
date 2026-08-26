@@ -6,19 +6,45 @@ const AppError = require('../../utils/AppError');
 // ============================================
 
 async function getCategoryTree() {
-  const { data, error } = await supabaseAdmin
+  const { data: categories, error: categoryError } = await supabaseAdmin
     .from('categories')
     .select('*')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
-  if (error) {
-    throw new AppError(error.message, 500, 'DATABASE_ERROR');
+  if (categoryError) {
+    throw new AppError(
+      categoryError.message,
+      500,
+      'DATABASE_ERROR'
+    );
   }
 
-  return (data || []).map(c => ({
-    ...c,
-    product_count: 0,
+  const { data: products, error: productError } = await supabaseAdmin
+    .from('products')
+    .select('id, category_id')
+    .eq('is_archived', false);
+
+  if (productError) {
+    throw new AppError(
+      productError.message,
+      500,
+      'DATABASE_ERROR'
+    );
+  }
+
+  const productCounts = {};
+
+  (products || []).forEach((product) => {
+    if (product.category_id) {
+      productCounts[product.category_id] =
+        (productCounts[product.category_id] || 0) + 1;
+    }
+  });
+
+  return (categories || []).map((category) => ({
+    ...category,
+    product_count: productCounts[category.id] || 0,
   }));
 }
 

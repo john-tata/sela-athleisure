@@ -65,11 +65,14 @@ async function addItem({ userId, guestToken, productId, variantId, quantity }) {
   if (variantId) {
     const { data: variant, error } = await supabaseAdmin
       .from('product_variants')
-      .select('id, product_id, stock_quantity')
+      .select('id, product_id, stock_quantity, is_active')
       .eq('id', variantId)
       .single();
 
     if (error || !variant) throw new AppError('Variant not found', 404, 'NOT_FOUND');
+    if (variant.is_active === false) {
+      throw new AppError('Variant is unavailable', 400, 'INVALID_VARIANT');
+    }
 
     resolvedProductId = resolvedProductId || variant.product_id;
     stockQuantity = variant.stock_quantity;
@@ -133,6 +136,33 @@ async function addItem({ userId, guestToken, productId, variantId, quantity }) {
 }
 
 async function updateItem({ userId, guestToken, itemId, quantity }) {
+  const ownerQuery = applyOwnerFilter(
+    supabaseAdmin
+      .from('cart_items')
+      .select(`
+        id,
+        product:product_id(inventory_quantity),
+        variant:variant_id(stock_quantity)
+      `)
+      .eq('id', itemId),
+    { userId, guestToken }
+  );
+
+  const { data: cartItem, error: itemError } = await ownerQuery.single();
+
+  if (itemError || !cartItem) {
+    throw new AppError('Cart item not found', 404, 'NOT_FOUND');
+  }
+
+  const stockQuantity =
+    cartItem.variant?.stock_quantity ??
+    cartItem.product?.inventory_quantity ??
+    null;
+
+  if (stockQuantity !== null && quantity > stockQuantity) {
+    throw new AppError('Insufficient stock', 400, 'INSUFFICIENT_STOCK');
+  }
+
   const query = supabaseAdmin
     .from('cart_items')
     .update({ quantity })

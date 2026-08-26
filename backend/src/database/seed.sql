@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- Clear existing data
-TRUNCATE categories, products, product_variants, product_images, hero_slides, testimonials, lookbook_images, cart_items, orders, order_items, reviews, newsletter_subscribers CASCADE;
+TRUNCATE categories, products, product_variants, product_images, hero_slides, testimonials, lookbook_images, shipping_zones, cart_items, orders, order_items, reviews, newsletter_subscribers CASCADE;
 
 -- ============================================================
 -- CATEGORIES
@@ -128,6 +128,14 @@ INSERT INTO lookbook_images (image_url, alt_text, is_tall, sort_order, is_active
 ('/assets/lookbook-6.jpg', 'Post workout stretch', true, 6, true),
 ('/assets/lookbook-7.jpg', 'City street style', true, 7, true),
 ('/assets/lookbook-8.jpg', 'Group fitness', false, 8, true);
+
+-- ============================================================
+-- SHIPPING ZONES
+-- ============================================================
+INSERT INTO shipping_zones (name, state, description, shipping_fee, free_shipping_threshold, is_active) VALUES
+('Abuja (Area A)', 'FCT', 'Apo, Kaura, Guzape, Prince & Princess, Lifecamp, Galadima, Galadimawa, Asokoro, Katempe, Jahi, Gwarimpa 1st-2nd Avenue', 3500, NULL, true),
+('Abuja (Area C)', 'FCT', 'Apo Legislative, Apo resettlement, AYA, Lifecamp EXT, Brains and Hammers City, Karimo, Naf Valley, Gwarimpa 3rd-4th Avenue, Kugbo', 4000, NULL, true),
+('Abuja (Area E)', 'FCT', 'Lugbe, Nyanya, Katampe Extension, Kurudu, Kugbo, Kubwa, Wumba, Kubusa, Durumi, Sun City, Idu, Dawaki, Lokogoma', 5000, NULL, true);
 
 -- ============================================================
 -- DONE

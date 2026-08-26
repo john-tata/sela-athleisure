@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Heart, ShoppingBag, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 
@@ -14,6 +15,29 @@ type Order = {
   created_at: string;
 };
 
+type Favorite = {
+  id: string;
+  product_id: string;
+  created_at: string;
+  products: {
+    id: string;
+    name: string;
+    slug: string;
+    base_price: number;
+    compare_price?: number | null;
+    is_active: boolean;
+    is_bestseller: boolean;
+    is_featured: boolean;
+    is_new: boolean;
+    product_images: {
+      id: string;
+      url: string;
+      alt_text?: string | null;
+      is_primary: boolean;
+      sort_order: number;
+    }[];
+  };
+};
 // ---- Status presentation (dark-glass tinted) -------------------------------
 
 const STATUS_STYLES: Record<string, { dot: string; text: string; bg: string; border: string }> = {
@@ -128,6 +152,9 @@ export default function Account() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+const [favoritesLoading, setFavoritesLoading] = useState(true);
+const [removingFavorite, setRemovingFavorite] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -152,6 +179,42 @@ export default function Account() {
 
     loadOrders();
   }, [user]);
+
+  useEffect(() => {
+  if (!user) return;
+
+  const loadFavorites = async () => {
+    try {
+      const response = await api.getFavorites();
+
+      console.log("ACCOUNT FAVORITES:", response);
+
+      setFavorites(response?.favorites || []);
+    } catch (error) {
+      console.error("Failed to load favorites:", error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
+
+  loadFavorites();
+}, [user]);
+
+const handleRemoveFavorite = async (productId: string) => {
+  setRemovingFavorite(productId);
+
+  try {
+    await api.removeFavorite(productId);
+
+    setFavorites((current) =>
+      current.filter((favorite) => favorite.product_id !== productId)
+    );
+  } catch (error) {
+    console.error("Failed to remove favorite:", error);
+  } finally {
+    setRemovingFavorite(null);
+  }
+};
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -214,13 +277,27 @@ export default function Account() {
 
           {/* Section nav */}
           <nav className="flex items-center gap-8 mb-10 -mt-2 text-xs uppercase tracking-wider text-white/50">
-            <a href="#details" className="py-2 border-b-2 border-transparent hover:border-white hover:text-white transition-colors">
-              Account Details
-            </a>
-            <a href="#orders" className="py-2 border-b-2 border-transparent hover:border-white hover:text-white transition-colors">
-              Orders{orders.length > 0 ? ` (${orders.length})` : ""}
-            </a>
-          </nav>
+  <a
+    href="#details"
+    className="py-2 border-b-2 border-transparent hover:border-white hover:text-white transition-colors"
+  >
+    Account Details
+  </a>
+
+  <a
+    href="#orders"
+    className="py-2 border-b-2 border-transparent hover:border-white hover:text-white transition-colors"
+  >
+    Orders{orders.length > 0 ? ` (${orders.length})` : ""}
+  </a>
+
+  <a
+    href="#favorites"
+    className="py-2 border-b-2 border-transparent hover:border-white hover:text-white transition-colors"
+  >
+    Favourites{favorites.length > 0 ? ` (${favorites.length})` : ""}
+  </a>
+</nav>
 
           <div className="grid lg:grid-cols-3 gap-8">
 
@@ -345,7 +422,145 @@ export default function Account() {
               )}
             </section>
 
-          </div>
+                    </div>
+
+          {/* Favourites */}
+          <section
+            id="favorites"
+            className="mt-10 scroll-mt-32"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-display text-2xl text-white">
+                  My Favourites
+                </h2>
+
+                <p className="text-sm text-white/50 mt-1">
+                  Pieces you've saved for later.
+                </p>
+              </div>
+
+              <Link
+                to="/shop"
+                className="text-xs uppercase tracking-wider text-white/70 underline underline-offset-4 hover:text-white transition-colors"
+              >
+                Shop More
+              </Link>
+            </div>
+
+            {favoritesLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((item) => (
+                  <div
+                    key={item}
+                    className="aspect-[3/4] rounded-2xl border border-white/10 bg-white/10 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : favorites.length === 0 ? (
+              <div className="rounded-2xl border border-white/15 bg-white/10 backdrop-blur-2xl shadow-2xl p-10 sm:p-14 text-center">
+                <Heart className="mx-auto mb-5 h-10 w-10 text-white/40" />
+
+                <p className="font-display text-xl text-white mb-2">
+                  No favourites yet
+                </p>
+
+                <p className="text-sm text-white/60 mb-6 max-w-sm mx-auto">
+                  Save pieces you love and they'll appear here.
+                </p>
+
+                <Link
+                  to="/shop"
+                  className="inline-block bg-white text-rich-black px-6 py-3 text-xs uppercase tracking-wider font-medium hover:bg-white/90 transition-colors"
+                >
+                  Explore the Collection
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                {favorites.map((favorite) => {
+                  const product = favorite.products;
+   const image =
+   product.product_images?.find((img) => img.is_primary) ||
+   product.product_images?.[0];
+
+                  return (
+                    <div
+                      key={favorite.id}
+                      className="group relative"
+                    >
+                      <Link
+                        to={`/products/${product.slug}`}
+                        className="block"
+                      >
+                        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-white/10">
+                          {image ? (
+                            <img
+                              src={image.url}
+                              alt={image.alt_text || product.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <ShoppingBag className="h-8 w-8 text-white/30" />
+                            </div>
+                          )}
+
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-12">
+                            <p className="text-xs text-white/60">
+                              Saved
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleRemoveFavorite(product.id)
+                        }
+                        disabled={removingFavorite === product.id}
+                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 disabled:opacity-50"
+                        aria-label={`Remove ${product.name} from favourites`}
+                      >
+                        {removingFavorite === product.id ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </button>
+
+                      <div className="mt-3">
+                        <Link to={`/products/${product.slug}`}>
+                          <h3 className="text-sm font-medium text-white hover:text-white/70 transition-colors">
+                            {product.name}
+                          </h3>
+                        </Link>
+
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">
+                            ₦{Number(product.base_price).toLocaleString()}
+                          </span>
+
+                          {product.compare_price &&
+                            Number(product.compare_price) >
+                              Number(product.base_price) && (
+                              <span className="text-sm text-white/40 line-through">
+                                ₦
+                                {Number(
+                                  product.compare_price
+                                ).toLocaleString()}
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </main>

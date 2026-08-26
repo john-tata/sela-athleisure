@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from 'react';
 import { Search, ShoppingBag, Menu, X, User } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
@@ -14,13 +14,16 @@ const navLinks = [
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+
 const isHome = location.pathname === "/";
 
 const { user } = useAuth();
 
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-
+ const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const itemCount = useCartStore((s) => s.itemCount);
 const openCart = useCartStore((s) => s.open);
 
@@ -31,7 +34,14 @@ const openCart = useCartStore((s) => s.open);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    navigate(`/shop?search=${encodeURIComponent(trimmed)}`);
+    setSearchOpen(false);
+    setQuery('');
+  };
   return (
     <>
       <nav
@@ -71,9 +81,38 @@ const openCart = useCartStore((s) => s.open);
         </div>
 
         <div className="flex items-center gap-4">
-          <button className={`transition-colors duration-300 hover:text-gold ${(scrolled || !isHome) ? 'text-rich-black' : 'text-white'}`}>
-            <Search size={20} />
+          <button
+  onClick={() => setSearchOpen(true)}
+  className={`transition-colors duration-300 hover:text-gold ${
+    (scrolled || !isHome) ? 'text-rich-black' : 'text-white'
+  }`}
+  aria-label="Search"
+>
+  <Search size={20} />
+</button>
+
+<div
+        className={`fixed inset-0 z-[1000] bg-white transition-transform duration-[400ms] ${
+          searchOpen ? 'translate-y-0' : '-translate-y-full'
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 h-[60px] lg:h-[72px] border-b border-gray-100">
+          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-4">
+            <Search size={20} className="text-cool-gray shrink-0" />
+            <input
+              autoFocus={searchOpen}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search products..."
+              className="w-full font-body text-lg outline-none placeholder:text-gray-300"
+            />
+          </form>
+          <button onClick={() => setSearchOpen(false)} className="text-rich-black shrink-0 ml-4">
+            <X size={24} />
           </button>
+        </div>
+      </div>
           <Link
   to={user ? '/account' : '/login'}
   className={`transition-colors duration-300 hover:text-gold ${

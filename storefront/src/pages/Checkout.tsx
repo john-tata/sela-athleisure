@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Lock, Truck } from 'lucide-react';
+import { ArrowLeft, Lock, MapPin, Truck } from 'lucide-react';
 
 import { useCartStore } from '@/stores/cartStore';
 import { api } from '@/lib/api';
@@ -15,7 +15,18 @@ type ShippingQuote = {
   zone: {
     id: string;
     name: string;
+    state?: string | null;
+    description?: string | null;
   } | null;
+};
+
+type ShippingZone = {
+  id: string;
+  name: string;
+  state?: string | null;
+  description?: string | null;
+  shipping_fee: number | string;
+  free_shipping_threshold?: number | string | null;
 };
 
 export function Checkout() {
@@ -36,6 +47,8 @@ export function Checkout() {
   });
 
   const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingZones, setShippingZones] = useState<ShippingZone[]>([]);
+  const [shippingZonesLoading, setShippingZonesLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,6 +60,8 @@ export function Checkout() {
     address_line2: '',
     city: '',
     state: '',
+    shipping_zone_id: '',
+    shipping_zone_name: '',
     country: 'Nigeria',
     postal_code: '',
   });
@@ -57,6 +72,38 @@ export function Checkout() {
   useEffect(() => {
     loadCart();
   }, [loadCart]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShippingZones = async () => {
+      try {
+        setShippingZonesLoading(true);
+
+        const response = await api.getShippingZones();
+
+        if (!cancelled) {
+          setShippingZones(response.data?.zones || []);
+        }
+      } catch (err) {
+        console.error('Failed to load shipping zones:', err);
+
+        if (!cancelled) {
+          setError('Unable to load delivery areas.');
+        }
+      } finally {
+        if (!cancelled) {
+          setShippingZonesLoading(false);
+        }
+      }
+    };
+
+    loadShippingZones();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /*
    * Keep shipping quote total synchronized with subtotal
@@ -70,13 +117,13 @@ export function Checkout() {
   }, [subtotal]);
 
   /*
-   * Calculate shipping whenever the customer selects/types
-   * a state.
+   * Calculate shipping whenever the customer selects
+   * a delivery area.
    */
   useEffect(() => {
-    const state = form.state.trim();
+    const zoneId = form.shipping_zone_id;
 
-    if (!state) {
+    if (!zoneId) {
       setShippingQuote({
         shipping: 0,
         total: subtotal,
@@ -96,7 +143,10 @@ export function Checkout() {
         setError('');
 
         const response = await api.calculateShipping(
-          state,
+          {
+            zoneId,
+            state: form.state,
+          },
           subtotal
         );
 
@@ -137,7 +187,7 @@ export function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [form.state, subtotal]);
+  }, [form.shipping_zone_id, form.state, subtotal]);
 
   /*
    * Final amount shown to the customer.
@@ -155,6 +205,16 @@ export function Checkout() {
     }));
   };
 
+  const selectShippingZone = (zone: ShippingZone) => {
+    setForm((prev) => ({
+      ...prev,
+      shipping_zone_id: zone.id,
+      shipping_zone_name: zone.name,
+      state: zone.state || zone.name,
+      city: prev.city || (zone.name.toLowerCase().includes('abuja') ? 'Abuja' : prev.city),
+    }));
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -163,8 +223,8 @@ export function Checkout() {
       return;
     }
 
-    if (!form.state.trim()) {
-      setError('Please enter your state before continuing.');
+    if (!form.shipping_zone_id) {
+      setError('Please select your delivery area before continuing.');
       return;
     }
 
@@ -178,7 +238,10 @@ export function Checkout() {
        * using a stale quote.
        */
       const shippingResponse = await api.calculateShipping(
-        form.state.trim(),
+        {
+          zoneId: form.shipping_zone_id,
+          state: form.state.trim(),
+        },
         subtotal
       );
 
@@ -427,16 +490,10 @@ export function Checkout() {
                       />
 
                       <input
-                        required
-                        placeholder="State (e.g. FCT)"
                         value={form.state}
-                        onChange={(e) =>
-                          updateField(
-                            'state',
-                            e.target.value
-                          )
-                        }
-                        className="checkout-input"
+                        readOnly
+                        placeholder="State"
+                        className="checkout-input bg-gray-50"
                       />
 
                     </div>
@@ -472,8 +529,71 @@ export function Checkout() {
 
                   </div>
 
+                  <div className="mt-6 border border-gray-200 bg-white">
+                    <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-4">
+                      <MapPin size={18} className="text-rich-black" />
+
+                      <h3 className="font-body text-base font-semibold text-rich-black">
+                        Select Shipping
+                      </h3>
+                    </div>
+
+                    {shippingZonesLoading ? (
+                      <p className="font-body text-sm text-cool-gray p-4">
+                        Loading delivery areas...
+                      </p>
+                    ) : shippingZones.length === 0 ? (
+                      <p className="font-body text-sm text-cool-gray p-4">
+                        No delivery areas are available right now.
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {shippingZones.map((zone) => {
+                          const checked =
+                            form.shipping_zone_id === zone.id;
+
+                          return (
+                            <label
+                              key={zone.id}
+                              className="grid cursor-pointer grid-cols-[24px_1fr_auto] gap-3 px-4 py-5 hover:bg-gray-50"
+                            >
+                              <input
+                                type="radio"
+                                name="shipping_zone"
+                                checked={checked}
+                                onChange={() =>
+                                  selectShippingZone(zone)
+                                }
+                                className="mt-1 h-4 w-4 accent-rich-black"
+                              />
+
+                              <span>
+                                <span className="block font-body text-sm font-semibold text-rich-black">
+                                  {zone.name}
+                                </span>
+
+                                {zone.description && (
+                                  <span className="mt-2 block font-body text-sm leading-6 text-cool-gray">
+                                    {zone.description}
+                                  </span>
+                                )}
+                              </span>
+
+                              <span className="font-body text-sm font-semibold text-rich-black">
+                                N
+                                {Number(
+                                  zone.shipping_fee
+                                ).toLocaleString()}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Shipping status */}
-                  {form.state.trim() && (
+                  {form.shipping_zone_id && (
                     <div className="mt-5 flex items-center gap-3 p-4 bg-gray-50 border border-gray-200">
 
                       <Truck
@@ -524,6 +644,7 @@ export function Checkout() {
                   disabled={
                     loading ||
                     shippingLoading ||
+                    shippingZonesLoading ||
                     !shippingQuote.zone
                   }
                   className="w-full bg-rich-black text-black py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] hover:bg-gold hover:text-rich-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

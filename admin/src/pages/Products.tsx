@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Package, Archive, ArchiveRestore, } from 'lucide-react';
 import { productApi, categoryApi } from '../lib/api';
 import Modal from '../components/Modal';
 import MultiImageUpload from "../components/MultiImageUpload";
@@ -34,6 +34,7 @@ interface Product {
   category_name?: string;
   inventory_quantity: number;
   is_active: boolean;
+  is_archived: boolean;
   is_featured: boolean;
   created_at: string;
   variants?: ProductVariant[];
@@ -43,6 +44,16 @@ interface Category {
   id: string;
   name: string;
 }
+
+const emptyVariant = (): ProductVariant => ({
+  sku: "",
+  size: "",
+  color: "",
+  color_hex: "#000000",
+  stock_quantity: 0,
+  price_adjustment: 0,
+  image_url: "",
+});
 
 const emptyForm = {
   name: '',
@@ -62,20 +73,13 @@ export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'archived'>('all');
   const [loading, setLoading] = useState(true);
 
   const [hasVariants, setHasVariants] = useState(false);
 
   const [variants, setVariants] = useState<ProductVariant[]>([
-    {
-      sku: "",
-      size: "",
-      color: "",
-      color_hex: "#000000",
-      stock_quantity: 0,
-      price_adjustment: 0,
-      image_url: "",
-    },
+    emptyVariant(),
   ]);
   // Modal states
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -89,7 +93,7 @@ export default function Products() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await productApi.list();
+      const res = await productApi.adminList();
 setProducts(res.data?.products || []);
     } catch (err) {
       console.error('Failed to load products:', err);
@@ -120,17 +124,7 @@ setProducts(res.data?.products || []);
 
   const openAdd = () => {
     setForm({...emptyForm});
-    setVariants([
-        {
-            sku:"",
-            size:"",
-            color:"",
-            color_hex:"#000000",
-            stock_quantity:0,
-            price_adjustment:0,
-            image_url:""
-        }
-    ]);
+    setVariants([emptyVariant()]);
     setHasVariants(false);
     setError("");
     setIsAddOpen(true);
@@ -163,6 +157,68 @@ setHasVariants((fullProduct.variants || []).length > 0);
   setIsEditOpen(true);
 };
 
+  const updateVariant = (
+    index: number,
+    patch: Partial<ProductVariant>
+  ) => {
+    setVariants((prev) =>
+      prev.map((variant, i) =>
+        i === index ? { ...variant, ...patch } : variant
+      )
+    );
+  };
+
+  const prepareVariants = () => {
+    if (!hasVariants) return [];
+
+    const normalized = variants
+      .map((variant) => ({
+        ...variant,
+        sku: variant.sku.trim(),
+        size: variant.size.trim(),
+        color: variant.color.trim(),
+        color_hex: variant.color_hex || '#000000',
+        stock_quantity: Number(variant.stock_quantity || 0),
+        price_adjustment: Number(variant.price_adjustment || 0),
+        image_url: variant.image_url || '',
+      }))
+      .filter(
+        (variant) =>
+          variant.sku ||
+          variant.size ||
+          variant.color ||
+          variant.image_url
+      );
+
+    if (normalized.length === 0) {
+      throw new Error('Add at least one variant or turn off Sizes & Colors.');
+    }
+
+    const seen = new Set<string>();
+
+    for (const variant of normalized) {
+      if (!variant.size && !variant.color) {
+        throw new Error('Each variant needs at least a size or color.');
+      }
+
+      if (variant.stock_quantity < 0 || variant.price_adjustment < 0) {
+        throw new Error('Variant stock and price adjustment cannot be negative.');
+      }
+
+      const key = `${variant.size.toLowerCase()}::${variant.color.toLowerCase()}`;
+
+      if (seen.has(key)) {
+        throw new Error(
+          `Duplicate variant: ${variant.color || 'Color'} ${variant.size || 'Size'}`
+        );
+      }
+
+      seen.add(key);
+    }
+
+    return normalized;
+  };
+
   const openDelete = (product: Product) => {
     setSelectedProduct(product);
     setIsDeleteOpen(true);
@@ -180,7 +236,7 @@ setHasVariants((fullProduct.variants || []).length > 0);
     ? Number(form.compare_price)
     : null,
   inventory_quantity: Number(form.inventory_quantity),
-  variants: hasVariants ? variants : [],
+  variants: prepareVariants(),
 };
       await productApi.create(payload);
       setVariants([]);
@@ -205,7 +261,7 @@ setHasVariants(false);
         base_price: Number(form.base_price),
         compare_price: form.compare_price ? Number(form.compare_price) : null,
         inventory_quantity: Number(form.inventory_quantity),
-        variants: hasVariants ? variants : [],
+        variants: prepareVariants(),
       };
       await productApi.update(selectedProduct.slug, payload);
       setIsEditOpen(false);
@@ -216,6 +272,26 @@ setHasVariants(false);
       setSaving(false);
     }
   };
+
+  const handleArchiveToggle = async (product: Product) => {
+  setSaving(true);
+  setError('');
+
+  try {
+    await productApi.update(product.slug, {
+      is_archived: !product.is_archived,
+    });
+
+    await fetchProducts();
+  } catch (err: any) {
+    setError(
+      err.message ||
+      `Failed to ${product.is_archived ? 'unarchive' : 'archive'} product`
+    );
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleDelete = async () => {
     if (!selectedProduct) return;
@@ -231,32 +307,73 @@ setHasVariants(false);
     }
   };
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products.filter((p) => {
+  const matchesSearch = p.name
+    .toLowerCase()
+    .includes(search.toLowerCase());
+
+  const matchesStatus =
+    statusFilter === 'all' ||
+    (statusFilter === 'active' && !p.is_archived) ||
+    (statusFilter === 'archived' && p.is_archived);
+
+  return matchesSearch && matchesStatus;
+});
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
-            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#C89A5A] w-72"
-          />
-        </div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <div className="flex flex-col sm:flex-row gap-3">
+    <div className="relative">
+      <Search
+        size={16}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+      />
+
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search products..."
+        className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#C89A5A] w-72"
+      />
+    </div>
+
+    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+      {[
+        { value: 'all', label: 'All' },
+        { value: 'active', label: 'Active' },
+        { value: 'archived', label: 'Archived' },
+      ].map((filter) => (
         <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#111111] text-white text-sm font-medium rounded-lg hover:bg-[#333] transition-colors"
+          key={filter.value}
+          type="button"
+          onClick={() =>
+            setStatusFilter(
+              filter.value as 'all' | 'active' | 'archived'
+            )
+          }
+          className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+            statusFilter === filter.value
+              ? 'bg-white text-[#111111] shadow-sm font-medium'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
         >
-          <Plus size={16} />
-          Add Product
+          {filter.label}
         </button>
-      </div>
+      ))}
+    </div>
+  </div>
+
+  <button
+    onClick={openAdd}
+    className="flex items-center gap-2 px-4 py-2.5 bg-[#111111] text-white text-sm font-medium rounded-lg hover:bg-[#333] transition-colors"
+  >
+    <Plus size={16} />
+    Add Product
+  </button>
+</div>
 
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -296,31 +413,54 @@ setHasVariants(false);
                 </td>
                 <td className="px-6 py-4 text-gray-600">{product.inventory_quantity ?? '-'}</td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                    product.is_active
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {product.is_active ? 'Active' : 'Draft'}
-                  </span>
+                  {product.is_archived ? (
+  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+    <Archive size={12} />
+    Archived
+  </span>
+) : (
+  <span
+    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+      product.is_active
+        ? 'bg-green-50 text-green-700'
+        : 'bg-gray-100 text-gray-500'
+    }`}
+  >
+    {product.is_active ? 'Active' : 'Draft'}
+  </span>
+)}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => openEdit(product)}
-                      className="p-2 text-gray-400 hover:text-[#C89A5A] hover:bg-[#C89A5A]/10 rounded-lg transition-colors"
-                      title="Edit"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => openDelete(product)}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                 <div className="flex items-center justify-end gap-2">
+  <button
+    onClick={() => openEdit(product)}
+    className="p-2 text-gray-400 hover:text-[#C89A5A] hover:bg-[#C89A5A]/10 rounded-lg transition-colors"
+    title="Edit"
+  >
+    <Pencil size={14} />
+  </button>
+
+  <button
+    onClick={() => handleArchiveToggle(product)}
+    disabled={saving}
+    className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50"
+    title={product.is_archived ? 'Unarchive' : 'Archive'}
+  >
+    {product.is_archived ? (
+      <ArchiveRestore size={14} />
+    ) : (
+      <Archive size={14} />
+    )}
+  </button>
+
+  <button
+    onClick={() => openDelete(product)}
+    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+    title="Delete"
+  >
+    <Trash2 size={14} />
+  </button>
+</div>
                 </td>
               </tr>
             ))}
@@ -447,18 +587,8 @@ setHasVariants(false);
 
         if (!e.target.checked) {
           setVariants([]);
-        } else {
-          setVariants([
-            {
-                  sku: "",
-                  size: "",
-                  color: "",
-                  color_hex: "#000000",
-                  stock_quantity: 0,
-                  price_adjustment: 0,
-                  image_url: "",
-                },
-          ]);
+        } else if (variants.length === 0) {
+          setVariants([emptyVariant()]);
         }
       }}
     />
@@ -480,57 +610,35 @@ setHasVariants(false);
     placeholder="Size (S, M, L)"
     value={variant.size}
     onChange={(e)=>{
-        const copy = [...variants];
-
-copy[index] = {
-    ...copy[index],
-    sku: e.target.value,
-};
-
-setVariants(copy);
+        updateVariant(index, { size: e.target.value });
     }}
+    className="border rounded-lg px-3 py-2"
 />
           <input
             placeholder="SKU"
             value={variant.sku}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].sku = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { sku: e.target.value })}
             className="border rounded-lg px-3 py-2"
           />
 
           <input
             placeholder="Color"
             value={variant.color}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].color = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { color: e.target.value })}
             className="border rounded-lg px-3 py-2"
           />
 
           <input
             type="color"
             value={variant.color_hex}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].color_hex = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { color_hex: e.target.value })}
           />
 
           <input
             type="number"
             placeholder="Stock"
             value={variant.stock_quantity}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].stock_quantity = Number(e.target.value);
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { stock_quantity: Number(e.target.value) })}
             className="border rounded-lg px-3 py-2"
           />
 
@@ -538,11 +646,7 @@ setVariants(copy);
             type="number"
             placeholder="Price Adjustment"
             value={variant.price_adjustment}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].price_adjustment = Number(e.target.value);
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { price_adjustment: Number(e.target.value) })}
             className="border rounded-lg px-3 py-2"
           />
 
@@ -556,9 +660,7 @@ Variant Image
 <MultiImageUpload
 value={variant.image_url ? [variant.image_url] : []}
 onChange={(images) => {
-    const copy = [...variants];
-    copy[index].image_url = images[0] || "";
-    setVariants(copy);
+    updateVariant(index, { image_url: images[0] || "" });
 }}
 folder="products"
 />
@@ -582,15 +684,7 @@ folder="products"
       onClick={() =>
         setVariants([
           ...variants,
-          {
-            sku: "",
-            size: "",
-            color: "",
-            color_hex: "#000000",
-            stock_quantity: 0,
-            price_adjustment: 0,
-            image_url: "",
-          },
+          emptyVariant(),
         ])
       }
       className="bg-black text-white px-4 py-2 rounded-lg"
@@ -756,18 +850,8 @@ folder="products"
 
         if (!e.target.checked) {
           setVariants([]);
-        } else {
-          setVariants([
-            {
-                  sku: "",
-                  size: "",
-                  color: "",
-                  color_hex: "#000000",
-                  stock_quantity: 0,
-                  price_adjustment: 0,
-                  image_url: "",
-                },
-          ]);
+        } else if (variants.length === 0) {
+          setVariants([emptyVariant()]);
         }
       }}
     />
@@ -800,43 +884,27 @@ folder="products"
           <input
             placeholder="Size (S, M, L)"
             value={variant.size}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].size = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { size: e.target.value })}
             className="border rounded-lg px-3 py-2"
           />
           <input
             placeholder="SKU"
             value={variant.sku}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].sku = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { sku: e.target.value })}
             className="border rounded-lg px-3 py-2"
           />
 
           <input
             placeholder="Color"
             value={variant.color}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].color = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { color: e.target.value })}
             className="border rounded-lg px-3 py-2"
           />
 
           <input
             type="color"
             value={variant.color_hex}
-            onChange={(e) => {
-              const copy = [...variants];
-              copy[index].color_hex = e.target.value;
-              setVariants(copy);
-            }}
+            onChange={(e) => updateVariant(index, { color_hex: e.target.value })}
           />
 
           <div>
@@ -844,11 +912,7 @@ folder="products"
             <input
               type="number"
               value={variant.stock_quantity}
-              onChange={(e) => {
-                const copy = [...variants];
-                copy[index].stock_quantity = Number(e.target.value);
-                setVariants(copy);
-              }}
+              onChange={(e) => updateVariant(index, { stock_quantity: Number(e.target.value) })}
               className="border rounded-lg px-3 py-2 w-full"
             />
           </div>
@@ -858,11 +922,7 @@ folder="products"
             <input
               type="number"
               value={variant.price_adjustment}
-              onChange={(e) => {
-                const copy = [...variants];
-                copy[index].price_adjustment = Number(e.target.value);
-                setVariants(copy);
-              }}
+              onChange={(e) => updateVariant(index, { price_adjustment: Number(e.target.value) })}
               className="border rounded-lg px-3 py-2 w-full"
             />
           </div>
@@ -872,22 +932,13 @@ folder="products"
             <MultiImageUpload
               value={variant.image_url ? [variant.image_url] : []}
               onChange={(images) => {
-                const copy = [...variants];
-                copy[index].image_url = images[0] || "";
-                setVariants(copy);
+                updateVariant(index, { image_url: images[0] || "" });
               }}
               folder="products"
             />
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setVariants((prev) => prev.filter((_, i) => i !== index))}
-          className="text-red-600 text-sm"
-        >
-          Remove Variant
-        </button>
       </div>
     ))}
 
@@ -896,15 +947,7 @@ folder="products"
       onClick={() =>
         setVariants([
           ...variants,
-          {
-            sku: "",
-            size: "",
-            color: "",
-            color_hex: "#000000",
-            stock_quantity: 0,
-            price_adjustment: 0,
-            image_url: "",
-          },
+          emptyVariant(),
         ])
       }
       className="bg-black text-white px-4 py-2 rounded-lg"

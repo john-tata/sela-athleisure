@@ -29,6 +29,39 @@ router.get('/', catchAsync(async (req, res) => {
   }
 }));
 
+router.get(
+  '/archived',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const products = await productService.getArchivedProducts();
+
+    res.json({
+      status: 'success',
+      data: {
+        products,
+        total: products.length,
+      },
+    });
+  })
+);
+
+router.get(
+  '/admin',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const products = await productService.getAdminProducts();
+
+    res.json({
+      status: 'success',
+      data: {
+        products,
+        total: products.length,
+      },
+    });
+  })
+);
 // GET /api/v1/products/:slug — single product detail
 router.get('/:slug', catchAsync(async (req, res) => {
   const product = await productService.getProductBySlug(req.params.slug);
@@ -61,6 +94,34 @@ router.patch(
     );
 
     res.json({ status: 'success', data: product });
+  })
+);
+
+router.patch(
+  '/:slug/archive',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const product = await productService.archiveProduct(req.params.slug);
+
+    res.json({
+      status: 'success',
+      data: product,
+    });
+  })
+);
+
+router.patch(
+  '/:slug/restore',
+  requireAuth,
+  requireAdmin,
+  catchAsync(async (req, res) => {
+    const product = await productService.restoreProduct(req.params.slug);
+
+    res.json({
+      status: 'success',
+      data: product,
+    });
   })
 );
 

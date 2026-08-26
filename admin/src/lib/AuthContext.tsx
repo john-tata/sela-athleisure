@@ -32,10 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         setUser(session.user);
-        localStorage.setItem('admin_token', session.access_token);
+        localStorage.setItem('sb_token', session.access_token);
       } else {
         setUser(null);
-        localStorage.removeItem('admin_token');
+        localStorage.removeItem('sb_token');
       }
 
       setLoading(false);
@@ -48,10 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        localStorage.setItem('admin_token', session.access_token);
+        localStorage.setItem('sb_token', session.access_token);
       } else {
         setUser(null);
-        localStorage.removeItem('admin_token');
+        localStorage.removeItem('sb_token');
       }
     });
 
@@ -75,13 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Login succeeded but no session was returned.');
     }
 
-    localStorage.setItem('admin_token', data.session.access_token);
+    localStorage.setItem('sb_token', data.session.access_token);
     setUser(data.user);
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('admin_token');
+    localStorage.removeItem('sb_token');
     setUser(null);
   };
 

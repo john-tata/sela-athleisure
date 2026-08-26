@@ -25,10 +25,24 @@ export const api = {
 // === Products ===
 export const productApi = {
   list: () => api.get('/products'),
+
+  adminList: () => api.get('/products/admin'),
+
   get: (slug: string) => api.get(`/products/${slug}`),
+
   create: (data: any) => api.post('/products', data),
-  update: (slug: string, data: any) => api.patch(`/products/${slug}`, data),
-  delete: (slug: string) => api.delete(`/products/${slug}`),
+
+  update: (slug: string, data: any) =>
+    api.patch(`/products/${slug}`, data),
+
+  archive: (slug: string) =>
+    api.patch(`/products/${slug}/archive`),
+
+  restore: (slug: string) =>
+    api.patch(`/products/${slug}/restore`),
+
+  delete: (slug: string) =>
+    api.delete(`/products/${slug}`),
 };
 // === shipping ===
 export const shippingApi = {
