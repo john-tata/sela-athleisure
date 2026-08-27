@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 async function request(method: string, endpoint: string, body?: any) {
-  const token = localStorage.getItem('sb_token');
+  const token = localStorage.getItem('admin_token');
   const res = await fetch(`${API_URL}${endpoint}`, {
     method,
     headers: {
@@ -110,7 +110,7 @@ export const contentApi = {
 
   export const uploadApi = {
   image: async (file: File, folder = 'products') => {
-    const token = localStorage.getItem('sb_token');
+    const token = localStorage.getItem('admin_token');
 
     const formData = new FormData();
     formData.append('image', file);
@@ -134,7 +134,7 @@ export const contentApi = {
   },
 
   images: async (files: File[], folder = 'products') => {
-    const token = localStorage.getItem('sb_token');
+    const token = localStorage.getItem('admin_token');
 
     const formData = new FormData();
 
@@ -161,7 +161,7 @@ export const contentApi = {
     return data.data;
   },
   video: async (file: File) => {
-  const token = localStorage.getItem("sb_token");
+  const token = localStorage.getItem("admin_token");
 
   const formData = new FormData();
   formData.append("video", file);
