@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useCartStore } from "@/stores/cartStore";
+import SEO from "@/components/SEO";
 import ProductGallery from "@/components/Product/ProductGallery";
 import RelatedProducts from "@/components/Product/RelatedProducts";
 
@@ -162,9 +163,79 @@ export default function ProductDetails() {
   if (loading) return <main className="max-w-7xl mx-auto p-10">Loading...</main>;
   if (!product) return <main className="max-w-7xl mx-auto p-10">Product not found.</main>;
 
+  const siteUrl = "https://www.selaathleisure.com";
+const productUrl = `${siteUrl}/products/${product.slug}`;
+
+const productImage =
+  product.images?.[0]?.url ||
+  `${siteUrl}/assets/hero-slide-1.jpg`;
+
+const productDescription =
+  product.description ||
+  `Shop ${product.name} from SELA Athleisure. Premium activewear and fitness essentials designed for movement and everyday style.`;
+
+const productSchema = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  name: product.name,
+  description: productDescription,
+  image: [productImage],
+  brand: {
+    "@type": "Brand",
+    name: "SELA Athleisure",
+  },
+  url: productUrl,
+  offers: {
+    "@type": "Offer",
+    url: productUrl,
+    priceCurrency: "NGN",
+    price: product.base_price,
+    availability:
+      (product.inventory_quantity ?? 0) > 0
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+    itemCondition: "https://schema.org/NewCondition",
+  },
+};
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: siteUrl,
+    },
+    ...(product.category_slug
+      ? [
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: product.category_name || "Collection",
+            item: `${siteUrl}/collections/${product.category_slug}`,
+          },
+        ]
+      : []),
+    {
+      "@type": "ListItem",
+      position: product.category_slug ? 3 : 2,
+      name: product.name,
+      item: productUrl,
+    },
+  ],
+};
 
   return (
     <main className="max-w-7xl mx-auto px-4 pt-28 pb-12">
+      <SEO
+  title={`${product.name} | SELA Athleisure`}
+  description={productDescription}
+  canonical={productUrl}
+  image={productImage}
+  structuredData={[productSchema, breadcrumbSchema]}
+/>
       <div className="mb-8 flex items-center gap-2 text-sm text-neutral-500">
 
   <Link
@@ -177,7 +248,7 @@ export default function ProductDetails() {
   <span>/</span>
 
   <Link
-    to={`/category/${product.category_slug}`}
+    to={`/collections/${product.category_slug}`}
     className="hover:text-black transition-colors"
   >
     {product.category_name}

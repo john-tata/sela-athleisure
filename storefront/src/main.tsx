@@ -5,13 +5,16 @@ import './index.css'
 import App from './App.tsx'
 
 import { AuthProvider } from './contexts/AuthContext'
+import { HelmetProvider } from 'react-helmet-async'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-    <AuthProvider>
-      <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <HelmetProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   </StrictMode>,
 )

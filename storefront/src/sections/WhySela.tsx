@@ -65,15 +65,19 @@ const WhySela: React.FC = () => {
           {/* Text Right */}
           <div className="py-4 lg:py-8">
             <span className="text-xs font-semibold tracking-widest uppercase text-neutral-500 mb-4 block">
-              WHY SELA
-            </span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-neutral-900 mb-6 leading-tight">
-              Engineered for<br />Your Best Move
-            </h2>
-            <p className="text-neutral-600 text-base md:text-lg mb-10 max-w-md leading-relaxed">
-              Every piece is designed with performance in mind, using cutting-edge fabrics
-              that work as hard as you do. From sunrise yoga to sunset runs.
-            </p>
+  WHY SELA
+</span>
+
+<h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-neutral-900 mb-6 leading-tight">
+  Activewear Designed<br />for Your Best Move
+</h2>
+
+<p className="text-neutral-600 text-base md:text-lg mb-10 max-w-md leading-relaxed">
+  Sela Athleisure is a Nigerian activewear brand creating stylish,
+  comfortable gym wear and athleisure clothing for training, movement,
+  and everyday life. Every piece is designed to help you move freely,
+  feel confident, and look your best from the gym to the streets.
+</p>
 
             {/* Feature Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

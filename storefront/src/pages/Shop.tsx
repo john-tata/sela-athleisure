@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { ProductCard } from '@/components/ProductCard';
+import SEO from "@/components/SEO";
 import { api } from '@/lib/api';
 
 interface Product {
@@ -217,8 +218,33 @@ const handleSortChange = (value: string) => {
   (category) => category.slug === slug
 );
 
+const siteUrl = "https://www.selaathleisure.com";
+
+const collectionName = currentCategory?.name || "Shop";
+
+const collectionTitle = slug
+  ? `${collectionName} | SELA Athleisure`
+  : isNewArrivals
+    ? "New Arrivals | SELA Athleisure"
+    : "Shop Gym Wear & Activewear | SELA Athleisure";
+
+const collectionDescription = slug
+  ? `Shop ${collectionName.toLowerCase()} from SELA Athleisure. Discover premium fitness and athleisure pieces designed for movement and everyday style.`
+  : isNewArrivals
+    ? "Discover the latest arrivals from SELA Athleisure, with premium gym wear, activewear and fitness essentials designed for movement."
+    : "Shop SELA Athleisure for premium gym wear, activewear and fitness essentials designed for workouts and everyday style.";
+
+const collectionCanonical = slug
+  ? `${siteUrl}/collections/${slug}`
+  : `${siteUrl}/collections`;
+
   return (
     <main className="min-h-screen bg-background pt-[60px] lg:pt-[72px]">
+      <SEO
+  title={collectionTitle}
+  description={collectionDescription}
+  canonical={collectionCanonical}
+/>
       <style>{`
         @keyframes selaFadeUp {
           from { opacity: 0; transform: translateY(14px); }

@@ -32,7 +32,7 @@ export default function ShopByCategory() {
     return (
       <section className="w-full py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <SectionHeader label="SHOP" heading="Shop by Category" centered />
+          <SectionHeader label="SHOP" heading="Shop gym wear" centered />
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mt-12">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="animate-pulse bg-neutral-200 rounded-sm aspect-[3/4]" />
@@ -46,9 +46,17 @@ export default function ShopByCategory() {
   return (
     <section className="w-full py-16 md:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        <SectionHeader label="SHOP" heading="Shop by Category" centered />
+  <SectionHeader
+    label="SHOP"
+    heading="Shop Gym Wear & Activewear"
+    centered
+  />
 
-        {categories.length === 0 ? (
+  <p className="max-w-2xl mx-auto mt-4 text-center text-sm md:text-base text-neutral-500 leading-relaxed">
+    Shop SELA Athleisure for stylish gym wear and activewear in Nigeria. Discover sports bras, shorts, workout sets, gloves and training essentials designed for movement, comfort and everyday active style.
+  </p>
+
+  {categories.length === 0 ? (
           <div className="text-center py-16 text-neutral-500">
             Categories coming soon.
           </div>
