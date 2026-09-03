@@ -77,16 +77,34 @@ export default function ProductDetails() {
   const variants = product?.variants || [];
   const hasVariants = variants.length > 0;
 
-  const sizes = useMemo(
-    () => [
+  const SIZE_ORDER = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+
+const sizes = useMemo(
+  () =>
+    [
       ...new Set(
         variants
           .map((variant) => variant.size)
           .filter((size): size is string => Boolean(size))
       ),
-    ],
-    [variants]
-  );
+    ].sort((a, b) => {
+      const indexA = SIZE_ORDER.indexOf(a.toUpperCase());
+      const indexB = SIZE_ORDER.indexOf(b.toUpperCase());
+
+      // Known sizes follow SIZE_ORDER
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+
+      // Known sizes come before unknown/custom sizes
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+
+      // Keep custom sizes alphabetical
+      return a.localeCompare(b);
+    }),
+  [variants]
+);
 
   const colors = useMemo(
     () => [
