@@ -19,7 +19,7 @@ interface CartItem {
     color: string;
     color_hex: string;
     stock_quantity: number;
-    price_adjustment: number;
+    price: number;
   };
 
   image?: {

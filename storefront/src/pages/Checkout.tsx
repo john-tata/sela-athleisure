@@ -674,8 +674,9 @@ export function Checkout() {
 
                 {items.map((item) => {
                   const price =
-                    (item.product?.base_price || 0) +
-                    (item.variant?.price_adjustment || 0);
+  item.variant?.price != null
+    ? Number(item.variant.price)
+    : Number(item.product?.base_price || 0);
 
                   return (
                     <div

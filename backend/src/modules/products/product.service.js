@@ -22,7 +22,7 @@ function normalizeVariants(variants, productSlug) {
       color: String(variant.color || '').trim(),
       color_hex: variant.color_hex || '#000000',
       stock_quantity: Number(variant.stock_quantity || 0),
-      price_adjustment: Number(variant.price_adjustment || 0),
+      price: Number(variant.price || 0),
       image_url: variant.image_url || null,
     }))
     .filter((variant) => variant.size || variant.color || variant.sku || variant.image_url)
@@ -35,9 +35,9 @@ function normalizeVariants(variants, productSlug) {
         );
       }
 
-      if (variant.stock_quantity < 0 || variant.price_adjustment < 0) {
+      if (variant.stock_quantity < 0 || variant.price < 0) {
         throw new AppError(
-          'Variant stock and price adjustment cannot be negative.',
+          'Variant stock and price cannot be negative.',
           400,
           'INVALID_VARIANT'
         );
@@ -214,7 +214,7 @@ async function createProduct(productData) {
       color: v.color,
       color_hex: v.color_hex,
       stock_quantity: v.stock_quantity,
-      price_adjustment: v.price_adjustment,
+      price: v.price,
       image_url: v.image_url || null,
       is_active: true,
     }));
@@ -341,7 +341,7 @@ if (Array.isArray(variants)) {
       color: v.color ?? '',
       color_hex: v.color_hex ?? null,
       stock_quantity: v.stock_quantity ?? 0,
-      price_adjustment: v.price_adjustment ?? 0,
+      price: v.price ?? 0,
       image_url: v.image_url ?? null,
       is_active: v.is_active ?? true,
     };
@@ -560,7 +560,7 @@ function normalizeProduct(p) {
     color: v.color,
     color_hex: v.color_hex,
     stock_quantity: v.stock_quantity,
-    price_adjustment: v.price_adjustment,
+    price: v.price,
     image_url: v.image_url,
     is_active: v.is_active,
   })),

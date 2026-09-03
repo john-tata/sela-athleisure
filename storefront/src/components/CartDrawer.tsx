@@ -39,7 +39,10 @@ export function CartDrawer() {
           ) : (
             <div className="space-y-6">
               {items.map((item) => {
-                const price = (item.product?.base_price || 0) + (item.variant?.price_adjustment || 0);
+                const price =
+  item.variant?.price != null
+    ? Number(item.variant.price)
+    : Number(item.product?.base_price || 0);
                 return (
                   <div key={item.id} className="flex gap-4">
                     <img

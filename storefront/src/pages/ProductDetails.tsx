@@ -34,7 +34,7 @@ interface ProductVariant {
   color?: string;
   color_hex?: string;
   stock_quantity: number;
-  price_adjustment?: number;
+  price?: number;
   image_url?: string;
 }
 
@@ -129,8 +129,9 @@ const sizes = useMemo(
     : Number(product?.inventory_quantity || 10);
 
   const displayPrice =
-    Number(product?.base_price || 0) +
-    Number(selectedVariant?.price_adjustment || 0);
+  selectedVariant?.price != null
+    ? Number(selectedVariant.price)
+    : Number(product?.base_price || 0);
 
   useEffect(() => {
     if (maxQty > 0 && qty > maxQty) {
@@ -489,15 +490,7 @@ disabled:opacity-50
           <div className="mt-8 space-y-4 rounded-2xl border border-neutral-200 p-5 bg-neutral-50">
 
   <div className="flex items-center gap-3">
-    <span className="text-green-600 text-lg">✓</span>
-    <div>
-      <p className="font-medium">In Stock</p>
-      <p className="text-sm text-neutral-500">
-        {hasVariants && selectedVariant
-          ? `${selectedVariant.stock_quantity} available for this option.`
-          : "Ready to ship within 24 hours."}
-      </p>
-    </div>
+  
   </div>
 
   <div className="flex items-center gap-3">
