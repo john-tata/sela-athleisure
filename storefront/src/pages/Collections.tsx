@@ -1,41 +1,53 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '@/lib/api';
 
-const collections = [
-  {
-    title: 'Performance',
-    description:
-      'Technical pieces designed to move with you through every workout.',
-    image:
-      'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=85',
-    link: '/shop',
-  },
-  {
-    title: 'Essentials',
-    description:
-      'Clean, versatile staples made for training and everyday movement.',
-    image:
-      'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=85',
-    link: '/shop',
-  },
-  {
-    title: 'Women',
-    description:
-      'Confident silhouettes built around strength, comfort and style.',
-    image:
-      'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=85',
-    link: '/shop',
-  },
-  {
-    title: 'Accessories',
-    description:
-      'The finishing pieces for your training routine.',
-    image:
-      'https://images.unsplash.com/photo-1517838277536-f5f99be5011d?auto=format&fit=crop&w=1200&q=85',
-    link: '/shop',
-  },
-];
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  image_url: string | null;
+  sort_order: number;
+  product_count?: number;
+}
 
 export function Collections() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const response = await api.getCategories();
+
+        const data =
+          response.data?.categories ??
+          response.categories ??
+          response.data ??
+          [];
+
+        setCategories(
+          [...data].sort(
+            (a: Category, b: Category) =>
+              (a.sort_order || 0) - (b.sort_order || 0)
+          )
+        );
+      } catch (err) {
+        console.error('Failed to load collections:', err);
+        setError('Unable to load collections.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
   return (
     <main className="min-h-screen bg-white pt-[60px] lg:pt-[72px]">
 
@@ -61,43 +73,78 @@ export function Collections() {
       <section className="px-4 sm:px-6 lg:px-12 py-12 lg:py-20">
         <div className="max-w-7xl mx-auto">
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            {collections.map((collection) => (
-              <Link
-                key={collection.title}
-                to={collection.link}
-                className="group block"
-              >
-                <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="relative aspect-[4/5] overflow-hidden bg-gray-100 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="py-20 text-center">
+              <p className="font-body text-sm text-cool-gray">
+                {error}
+              </p>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="py-20 text-center">
+              <p className="font-body text-sm text-cool-gray">
+                No collections available yet.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              {categories.map((category) => (
+                <Link
+                  key={category.id}
+                  to={`/shop?category=${encodeURIComponent(category.slug)}`}
+                  className="group block"
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
 
-                  <img
-                    src={collection.image}
-                    alt={collection.title}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    loading="lazy"
-                  />
+                    {category.image_url ? (
+                      <img
+                        src={category.image_url}
+                        alt={category.name}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                        <span className="font-body text-xs uppercase tracking-[0.15em] text-gray-500">
+                          {category.name}
+                        </span>
+                      </div>
+                    )}
 
-                  {/* Overlay */}
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors duration-500" />
+                    {/* Overlay */}
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors duration-500" />
 
-                  {/* Content */}
-                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10 text-white">
-                    <h2 className="font-display text-4xl sm:text-5xl">
-                      {collection.title}
-                    </h2>
+                    {/* Content */}
+                    <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10 text-white">
 
-                    <p className="font-body text-sm leading-6 max-w-md mt-3 text-white/90">
-                      {collection.description}
-                    </p>
+                      <h2 className="font-display text-4xl sm:text-5xl">
+                        {category.name}
+                      </h2>
 
-                    <div className="inline-flex items-center mt-6 border-b border-white pb-1 font-body text-xs uppercase tracking-[0.15em]">
-                      Shop Collection
+                      {category.description && (
+                        <p className="font-body text-sm leading-6 max-w-md mt-3 text-white/90">
+                          {category.description}
+                        </p>
+                      )}
+
+                      <div className="inline-flex items-center mt-6 border-b border-white pb-1 font-body text-xs uppercase tracking-[0.15em]">
+                        Shop Collection
+                      </div>
+
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
 
         </div>
       </section>

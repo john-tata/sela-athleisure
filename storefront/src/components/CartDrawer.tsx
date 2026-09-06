@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export function CartDrawer() {
-  const { items, subtotal, shipping, total, itemCount, isOpen, close, removeItem, updateQuantity, loadCart } = useCartStore();
+  const { items, subtotal, total, itemCount, isOpen, close, removeItem, updateQuantity, loadCart } = useCartStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -110,20 +110,11 @@ export function CartDrawer() {
                 <span>Subtotal</span>
                 <span>N{subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between font-body text-gray-600">
-                <span>Shipping</span>
-                <span>{shipping === 0 ? 'Free' : `N${shipping.toLocaleString()}`}</span>
-              </div>
+
               <div className="flex justify-between font-body text-lg font-semibold text-[#111111] pt-2 border-t border-gray-200">
                 <span>Total</span>
                 <span>N{total.toLocaleString()}</span>
               </div>
-              {shipping > 0 && (
-                <p className="font-body text-xs text-gray-400">
-                  Free shipping on orders over N30,000
-                </p>
-              )}
-            </div>
             <button
   onClick={() => {
     close();
@@ -133,6 +124,7 @@ export function CartDrawer() {
 >
   Checkout
 </button>
+          </div>
           </div>
         )}
       </div>
