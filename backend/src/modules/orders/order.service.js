@@ -33,7 +33,7 @@ async function createOrder({
   if (item.variantId) {
     const { data: variantData } = await supabaseAdmin
       .from('product_variants')
-      .select('id, product_id, size, color, price_adjustment, stock_quantity, is_active')
+      .select('id, product_id, size, color, price, stock_quantity, is_active')
       .eq('id', item.variantId)
       .single();
 
@@ -56,11 +56,10 @@ async function createOrder({
     }
   }
 
-  let price = Number(product.base_price);
-
-  if (variant?.price_adjustment) {
-  price += Number(variant.price_adjustment);
-}
+ const price =
+  variant?.price != null
+    ? Number(variant.price)
+    : Number(product.base_price);
 
   subtotal += price * item.quantity;
 

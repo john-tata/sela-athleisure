@@ -18,7 +18,7 @@ interface ProductVariant {
     color: string;
     color_hex: string;
     stock_quantity: number;
-    price_adjustment: number;
+    price: number;
     image_url?: string;
 }
 
@@ -51,7 +51,7 @@ const emptyVariant = (): ProductVariant => ({
   color: "",
   color_hex: "#000000",
   stock_quantity: 0,
-  price_adjustment: 0,
+  price: 0,
   image_url: "",
 });
 
@@ -179,7 +179,7 @@ setHasVariants((fullProduct.variants || []).length > 0);
         color: variant.color.trim(),
         color_hex: variant.color_hex || '#000000',
         stock_quantity: Number(variant.stock_quantity || 0),
-        price_adjustment: Number(variant.price_adjustment || 0),
+        price: Number(variant.price || 0),
         image_url: variant.image_url || '',
       }))
       .filter(
@@ -201,8 +201,8 @@ setHasVariants((fullProduct.variants || []).length > 0);
         throw new Error('Each variant needs at least a size or color.');
       }
 
-      if (variant.stock_quantity < 0 || variant.price_adjustment < 0) {
-        throw new Error('Variant stock and price adjustment cannot be negative.');
+      if (variant.stock_quantity < 0 || variant.price < 0) {
+        throw new Error('Variant stock and price cannot be negative.');
       }
 
       const key = `${variant.size.toLowerCase()}::${variant.color.toLowerCase()}`;
@@ -642,13 +642,17 @@ setHasVariants(false);
             className="border rounded-lg px-3 py-2"
           />
 
-          <input
-            type="number"
-            placeholder="Price Adjustment"
-            value={variant.price_adjustment}
-            onChange={(e) => updateVariant(index, { price_adjustment: Number(e.target.value) })}
-            className="border rounded-lg px-3 py-2"
-          />
+         <input
+  type="number"
+  placeholder="Variant Price"
+  value={variant.price}
+  onChange={(e) =>
+    updateVariant(index, {
+      price: Number(e.target.value),
+    })
+  }
+  className="border rounded-lg px-3 py-2"
+/>
 
         </div>
 <div className="col-span-2">
@@ -918,11 +922,11 @@ folder="products"
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Price Adjustment (₦)</label>
+            <label className="block text-sm font-medium mb-1">Variant Price (₦)</label>
             <input
               type="number"
-              value={variant.price_adjustment}
-              onChange={(e) => updateVariant(index, { price_adjustment: Number(e.target.value) })}
+              value={variant.price}
+              onChange={(e) => updateVariant(index, { price: Number(e.target.value) })}
               className="border rounded-lg px-3 py-2 w-full"
             />
           </div>

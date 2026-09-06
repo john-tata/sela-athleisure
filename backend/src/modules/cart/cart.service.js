@@ -6,7 +6,10 @@ const SHIPPING_COST = 0;
 
 function calculateTotals(items) {
   const subtotal = items.reduce((sum, item) => {
-    const price = (item.product?.base_price || 0) + (item.variant?.price_adjustment || 0);
+    const price =
+  item.variant?.price != null
+    ? Number(item.variant.price)
+    : Number(item.product?.base_price || 0);
     return sum + price * item.quantity;
   }, 0);
 
@@ -35,7 +38,7 @@ async function getCart({ userId, guestToken }) {
     .select(`
       id, quantity,
       product:product_id(id, name, slug, base_price),
-      variant:variant_id(id, sku, size, color, color_hex, stock_quantity, price_adjustment),
+      variant:variant_id(id, sku, size, color, color_hex, stock_quantity, price),
       product_image:product_id(product_images(url, is_primary))
     `);
 
