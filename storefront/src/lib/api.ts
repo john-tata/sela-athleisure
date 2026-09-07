@@ -144,6 +144,16 @@ initializePayment: (orderId: string, email: string) =>
 verifyPayment: (reference: string) =>
   fetchApi(`/payments/verify/${reference}`),
 
+submitContact: (payload: {
+  name: string;
+  email: string;
+  message: string;
+}) =>
+  fetchApi('/contact', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  
   // Content
   getContent: (section: string) => fetchApi(`/content/${section}`),
   getAllContent: () => fetchApi('/content/all'),

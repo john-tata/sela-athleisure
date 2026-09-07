@@ -102,6 +102,7 @@ const contentRoutes = require('./modules/content/content.routes');
 const uploadRoutes = require('./modules/uploads/upload.routes');
 const authRoutes = require('./modules/auth/auth.routes');
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
+const contactRoutes = require('./modules/contact/contact.routes');
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -123,7 +124,7 @@ app.use('/api/v1/uploads', uploadRoutes);
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
-
+app.use('/api/v1/contact', contactRoutes);
 // ==========================================
 // 404 HANDLER
 // ==========================================

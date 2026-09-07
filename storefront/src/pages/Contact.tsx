@@ -1,11 +1,42 @@
 import { type FormEvent, useState } from "react";
+import { api } from "../lib/api";
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSubmitted(true);
+
+    setSending(true);
+    setError("");
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const message = String(formData.get("message") || "").trim();
+
+    try {
+      await api.submitContact({
+        name,
+        email,
+        message,
+      });
+
+      setSubmitted(true);
+      form.reset();
+    } catch (err: any) {
+      console.error("Contact form error:", err);
+
+      setError(
+        err?.message || "Something went wrong. Please try again."
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -14,7 +45,6 @@ export default function Contact() {
       {/* Header */}
       <section className="border-b border-gray-100 px-4 py-16 sm:px-6 lg:px-12 lg:py-24">
         <div className="mx-auto max-w-7xl">
-
           <h1 className="mt-4 font-display text-5xl text-rich-black sm:text-6xl lg:text-8xl">
             Contact
           </h1>
@@ -41,12 +71,14 @@ export default function Contact() {
             </h2>
 
             <div className="mt-10 space-y-6 font-body text-sm">
+
               <div>
                 <p className="text-xs uppercase tracking-[0.15em] text-cool-gray">
                   Email
                 </p>
+
                 <a
-                  href="mailto:hello@sela.com"
+                  href="mailto:selaathleisure@gmail.com"
                   className="mt-2 inline-block text-rich-black hover:text-gold"
                 >
                   selaathleisure@gmail.com
@@ -57,6 +89,7 @@ export default function Contact() {
                 <p className="text-xs uppercase tracking-[0.15em] text-cool-gray">
                   Instagram
                 </p>
+
                 <a
                   href="#"
                   className="mt-2 inline-block text-rich-black hover:text-gold"
@@ -69,10 +102,12 @@ export default function Contact() {
                 <p className="text-xs uppercase tracking-[0.15em] text-cool-gray">
                   Response time
                 </p>
+
                 <p className="mt-2 text-cool-gray">
                   We&apos;ll get back to you as soon as possible.
                 </p>
               </div>
+
             </div>
           </div>
 
@@ -85,11 +120,16 @@ export default function Contact() {
                 </h3>
 
                 <p className="mt-3 font-body text-sm leading-6 text-cool-gray">
-                  Thanks for reaching out. We&apos;ll get back to you soon.
+                  Thanks for reaching out. We&apos;ve received your
+                  message and will get back to you soon.
                 </p>
 
                 <button
-                  onClick={() => setSubmitted(false)}
+                  type="button"
+                  onClick={() => {
+                    setSubmitted(false);
+                    setError("");
+                  }}
                   className="mt-6 border border-rich-black px-6 py-3 font-body text-xs font-semibold uppercase tracking-[0.15em] text-rich-black transition-colors hover:bg-rich-black hover:text-white"
                 >
                   Send another message
@@ -97,6 +137,13 @@ export default function Contact() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+
+                {/* Error */}
+                {error && (
+                  <div className="border border-red-200 bg-red-50 px-4 py-3 font-body text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
 
                 <div>
                   <label
@@ -111,7 +158,8 @@ export default function Contact() {
                     name="name"
                     type="text"
                     required
-                    className="mt-2 w-full border border-gray-200 px-4 py-3 font-body text-sm outline-none transition-colors focus:border-rich-black"
+                    disabled={sending}
+                    className="mt-2 w-full border border-gray-200 px-4 py-3 font-body text-sm outline-none transition-colors focus:border-rich-black disabled:bg-gray-50"
                     placeholder="Your name"
                   />
                 </div>
@@ -129,7 +177,8 @@ export default function Contact() {
                     name="email"
                     type="email"
                     required
-                    className="mt-2 w-full border border-gray-200 px-4 py-3 font-body text-sm outline-none transition-colors focus:border-rich-black"
+                    disabled={sending}
+                    className="mt-2 w-full border border-gray-200 px-4 py-3 font-body text-sm outline-none transition-colors focus:border-rich-black disabled:bg-gray-50"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -147,16 +196,18 @@ export default function Contact() {
                     name="message"
                     required
                     rows={6}
-                    className="mt-2 w-full resize-none border border-gray-200 px-4 py-3 font-body text-sm outline-none transition-colors focus:border-rich-black"
+                    disabled={sending}
+                    className="mt-2 w-full resize-none border border-gray-200 px-4 py-3 font-body text-sm outline-none transition-colors focus:border-rich-black disabled:bg-gray-50"
                     placeholder="How can we help?"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-rich-black px-6 py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-gold"
+                  disabled={sending}
+                  className="w-full bg-rich-black px-6 py-4 font-body text-xs font-semibold uppercase tracking-[0.15em] text-black transition-colors hover:bg-gold disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Send Message
+                  {sending ? "Sending..." : "Send Message"}
                 </button>
 
               </form>
