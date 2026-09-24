@@ -131,7 +131,7 @@ export function Shop() {
         setLoading(true);
         setError('');
 
-        const res = await api.getProducts();
+        const res = await api.getProducts('limit=1000');
 
         console.log('SHOP PRODUCTS RESPONSE:', res);
 
