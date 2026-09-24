@@ -1038,5 +1038,5 @@ export function Shop() {
         </div>
       </section>
     </main>
-  );
+  );8
 }

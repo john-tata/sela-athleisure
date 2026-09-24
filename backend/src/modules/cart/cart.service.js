@@ -51,11 +51,17 @@ async function getCart({ userId, guestToken }) {
   const { data, error } = await query;
   if (error) throw new AppError(error.message, 500);
 
-  const items = (data || []).map((item) => ({
-    ...item,
-    image: item.product_image?.find?.((img) => img.is_primary) || item.product_image?.[0] || null,
-  }));
+  const items = (data || []).map((item) => {
+  const images = item.product_image?.product_images || [];
 
+  return {
+    ...item,
+    image:
+      images.find((img) => img.is_primary) ||
+      images[0] ||
+      null,
+  };
+});
   return { items, ...calculateTotals(items) };
 }
 
