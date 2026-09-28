@@ -2,7 +2,6 @@ import HeroCarousel from '@/sections/HeroCarousel';
 import FeatureStrip from '@/sections/FeatureStrip';
 import NewCollection from '@/sections/NewCollection';
 import ShopByCategory from '@/sections/ShopByCategory';
-import BestSellers from '@/sections/BestSellers';
 import WhySela from '@/sections/WhySela';
 import Lookbook from '@/sections/Lookbook';
 import VideoSection from '@/sections/VideoSection';
@@ -16,7 +15,6 @@ export default function Home() {
       <FeatureStrip />
       <NewCollection />
       <ShopByCategory />
-      <BestSellers />
       <WhySela />
       <Lookbook />
       <VideoSection />
