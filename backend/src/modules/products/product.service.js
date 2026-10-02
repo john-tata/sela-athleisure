@@ -116,6 +116,7 @@ async function getProducts({ category, limit = 20, offset = 0, sort = 'newest' }
 }
 
 async function getProductBySlug(slug) {
+  const normalizedSlug = slugPart(slug);
   const { data, error } = await supabaseAdmin
     .from('products')
     .select(`
@@ -124,7 +125,7 @@ async function getProductBySlug(slug) {
       product_images(*),
       product_variants(*)
     `)
-    .eq('slug', slug)
+    .eq('slug', normalizedSlug)
     .single();
 
   if (error || !data) throw new AppError('Product not found', 404, 'NOT_FOUND');
@@ -153,15 +154,21 @@ async function searchProducts(query, { limit = 20, offset = 0 }) {
 // ============================================
 
 async function createProduct(productData) {
-  const { images, variants =[], ...productFields } = productData;
-  const normalizedVariants = normalizeVariants(variants, productFields.slug);
+  const { images, variants = [], ...productFields } = productData;
+
+const productSlug =
+  productFields.slug
+    ? slugPart(productFields.slug)
+    : slugPart(productFields.name);
+
+const normalizedVariants = normalizeVariants(variants, productSlug);
 
   // 1. Insert product
   const { data: product, error } = await supabaseAdmin
     .from('products')
     .insert({
       name: productFields.name,
-      slug: productFields.slug,
+      slug: productSlug,
       description: productFields.description || '',
       base_price: productFields.base_price,
       compare_price: productFields.compare_price || null,
@@ -234,25 +241,34 @@ async function createProduct(productData) {
 }
 
 async function updateProduct(slug, updateData) {
+  const lookupSlug = slugPart(slug);
   const { images, variants = [], ...productFields } = updateData;
 
   // 1. Get current product
   const { data: current } = await supabaseAdmin
     .from('products')
     .select('id, slug')
-    .eq('slug', slug)
+    .eq('slug', lookupSlug)
     .single();
 
   if (!current) throw new AppError('Product not found', 404, 'NOT_FOUND');
-  const normalizedVariants = normalizeVariants(
-    variants,
-    productFields.slug || current.slug
-  );
+  
+  const updatedSlug =
+  productFields.slug !== undefined
+    ? slugPart(productFields.slug)
+    : current.slug;
+
+const normalizedVariants = normalizeVariants(
+  variants,
+  updatedSlug
+);
 
   // 2. Build update payload (only include defined fields)
   const payload = {};
   if (productFields.name !== undefined) payload.name = productFields.name;
-  if (productFields.slug !== undefined) payload.slug = productFields.slug;
+  if (productFields.slug !== undefined) {
+  payload.slug = slugPart(productFields.slug);
+}
   if (productFields.description !== undefined) payload.description = productFields.description;
   if (productFields.base_price !== undefined) payload.base_price = productFields.base_price;
   if (productFields.compare_price !== undefined) payload.compare_price = productFields.compare_price || null;
@@ -422,7 +438,7 @@ async function deleteProduct(slug) {
   const { data, error } = await supabaseAdmin
     .from('products')
     .delete()
-    .eq('slug', slug)
+    .eq('slug', slugPart(slug))
     .select('id')
     .single();
 
@@ -439,7 +455,7 @@ async function archiveProduct(slug) {
       is_archived: true,
       updated_at: new Date().toISOString(),
     })
-    .eq('slug', slug)
+    .eq('slug', slugPart(slug))
     .select('id, slug, name, is_archived')
     .single();
 
@@ -461,7 +477,7 @@ async function restoreProduct(slug) {
       is_archived: false,
       updated_at: new Date().toISOString(),
     })
-    .eq('slug', slug)
+    .eq('slug', slugPart(slug))
     .select('id, slug, name, is_archived')
     .single();
 
