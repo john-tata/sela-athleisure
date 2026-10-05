@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { optimizeImage } from "@/lib/imageUrl";
 
 interface ProductImage {
   id?: string;
@@ -33,17 +34,17 @@ export default function ProductGallery({
       <div className="group aspect-square overflow-hidden rounded-2xl bg-neutral-100">
         {currentImage ? (
           <img
-            src={currentImage}
-            alt={productName}
-            className="
-              w-full
-              h-full
-              object-cover
-              transition-transform
-              duration-500
-              group-hover:scale-110
-            "
-          />
+  src={optimizeImage(currentImage, 1200)}
+  alt={productName}
+  className="
+    w-full
+    h-full
+    object-cover
+    transition-transform
+    duration-500
+    group-hover:scale-110
+  "
+/>
         ) : (
           <div className="flex h-full items-center justify-center text-neutral-400">
             No Image
@@ -66,10 +67,10 @@ export default function ProductGallery({
                 }`}
             >
               <img
-                src={image.url}
-                alt={image.alt_text || productName}
-                className="h-full w-full object-cover"
-              />
+  src={optimizeImage(image.url, 200)}
+  alt={image.alt_text || productName}
+  className="h-full w-full object-cover"
+/>
             </button>
           ))}
         </div>

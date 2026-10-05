@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { contentApi } from '@/lib/api';
 
 interface VideoContent {
@@ -18,14 +18,16 @@ const VideoSection: React.FC = () => {
     cta_link: '/shop',
   });
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+
   useEffect(() => {
     const loadContent = async () => {
       try {
         const response = await contentApi.getSection('video_section');
-
         const data = response?.data || response;
 
-        setContent(prev => ({
+        setContent((prev) => ({
           ...prev,
           ...data,
         }));
@@ -37,17 +39,41 @@ const VideoSection: React.FC = () => {
     loadContent();
   }, []);
 
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoadVideo(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: '200px',
+      }
+    );
+
+    observer.observe(video);
+
+    return () => observer.disconnect();
+  }, [content.video_url]);
+
   return (
     <section className="relative h-[70vh] min-h-[500px] w-full overflow-hidden">
       {/* Background Video */}
       {content.video_url && (
         <video
+          ref={videoRef}
           className="absolute inset-0 h-full w-full object-cover"
-          src={content.video_url}
           autoPlay
           muted
           loop
           playsInline
+          preload="none"
+          src={shouldLoadVideo ? content.video_url : undefined}
         />
       )}
 

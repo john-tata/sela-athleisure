@@ -47,6 +47,9 @@ export function Shop() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
+  new Set()
+);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlSort = searchParams.get('sort');
@@ -131,7 +134,7 @@ export function Shop() {
         setLoading(true);
         setError('');
 
-        const res = await api.getProducts('limit=1000');
+        const res = await api.getProducts('limit=150');
 
         console.log('SHOP PRODUCTS RESPONSE:', res);
 
@@ -384,7 +387,30 @@ export function Shop() {
   const currentCategory = categories.find(
     (category) => category.slug === slug
   );
+useEffect(() => {
+  const loadFavorites = async () => {
+    const token = localStorage.getItem('sb_token');
 
+    if (!token) return;
+
+    try {
+      const res = await api.getFavorites();
+
+      if (res.success) {
+        const ids = (res.favorites || []).map(
+          (favorite: { product_id: string }) =>
+            favorite.product_id
+        );
+
+        setFavoriteIds(new Set(ids));
+      }
+    } catch (err) {
+      console.error('Failed to load favorites:', err);
+    }
+  };
+
+  loadFavorites();
+}, []);
   /*
    * SEO
    */
@@ -853,8 +879,9 @@ export function Shop() {
                       }}
                     >
                       <ProductCard
-                        product={product}
-                      />
+  product={product}
+  isWishlisted={favoriteIds.has(product.id)}
+/>
                     </div>
                   )
                 )}

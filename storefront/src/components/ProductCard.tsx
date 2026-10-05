@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Heart, ShoppingBag, Check } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { api } from "@/lib/api";
+import { optimizeImage } from "@/lib/imageUrl";
 
 interface ProductCardProps {
   product: {
@@ -12,16 +13,25 @@ interface ProductCardProps {
     base_price: number;
     compare_price?: number;
     images?: { url: string; alt_text?: string }[];
-    variants?: { id: string; size: string; color: string; stock_quantity: number }[];
+    variants?: {
+      id: string;
+      size: string;
+      color: string;
+      stock_quantity: number;
+    }[];
     is_bestseller?: boolean;
   };
+  isWishlisted?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({
+  product,
+  isWishlisted: initialIsWishlisted = false,
+}: ProductCardProps) {
 
 const [isHovered, setIsHovered] = useState(false);
 
-const [isWishlisted, setIsWishlisted] = useState(false);
+const [isWishlisted, setIsWishlisted] = useState(initialIsWishlisted);
 
 const [wishlistLoading, setWishlistLoading] = useState(false);
 
@@ -29,34 +39,9 @@ const [justAdded, setJustAdded] = useState(false);
 
 const addItem = useCartStore((s) => s.addItem);
 
-  useEffect(() => {
-  let cancelled = false;
-
-  const checkWishlist = async () => {
-    const token = localStorage.getItem("sb_token");
-
-    // Favorites require a logged-in user
-    if (!token) {
-      return;
-    }
-
-    try {
-      const response = await api.checkFavorite(product.id);
-
-      if (!cancelled) {
-        setIsWishlisted(Boolean(response.isFavorite));
-      }
-    } catch (error) {
-      console.error("Failed to check favorite:", error);
-    }
-  };
-
-  checkWishlist();
-
-  return () => {
-    cancelled = true;
-  };
-}, [product.id]);
+useEffect(() => {
+  setIsWishlisted(initialIsWishlisted);
+}, [initialIsWishlisted]);
 
   const firstImage = product.images?.[0];
   const hasComparePrice =
@@ -146,11 +131,11 @@ const handleWishlist = useCallback(
         <div className="relative aspect-[3/4] overflow-hidden bg-light-gray">
           {firstImage ? (
             <img
-              src={firstImage.url}
-              alt={firstImage.alt_text || product.name}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
+  src={optimizeImage(firstImage.url, 600)}
+  alt={firstImage.alt_text || product.name}
+  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+  loading="lazy"
+/>
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-light-gray">
               <span className="font-body text-sm text-cool-gray">
