@@ -116,7 +116,8 @@ async function getProducts({ category, limit = 20, offset = 0, sort = 'newest' }
 }
 
 async function getProductBySlug(slug) {
-  const normalizedSlug = slugPart(slug);
+  const lookupSlug = String(slug || '').trim();
+
   const { data, error } = await supabaseAdmin
     .from('products')
     .select(`
@@ -125,10 +126,19 @@ async function getProductBySlug(slug) {
       product_images(*),
       product_variants(*)
     `)
-    .eq('slug', normalizedSlug)
+    .eq('slug', lookupSlug)
     .single();
 
-  if (error || !data) throw new AppError('Product not found', 404, 'NOT_FOUND');
+  if (error || !data) {
+    console.error('Product lookup failed:', {
+      requestedSlug: slug,
+      lookupSlug,
+      error,
+    });
+
+    throw new AppError('Product not found', 404, 'NOT_FOUND');
+  }
+
   return normalizeProduct(data);
 }
 
