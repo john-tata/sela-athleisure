@@ -498,7 +498,7 @@ disabled:opacity-50
     <div>
       <p className="font-medium">Fast Delivery</p>
       <p className="text-sm text-neutral-500">
-        Get your order in 2–5 business days.
+        
       </p>
     </div>
   </div>
