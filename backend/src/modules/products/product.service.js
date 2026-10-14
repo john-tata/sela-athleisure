@@ -251,7 +251,7 @@ const normalizedVariants = normalizeVariants(variants, productSlug);
 }
 
 async function updateProduct(slug, updateData) {
-  const lookupSlug = slugPart(slug);
+const lookupSlug = String(slug || '').trim();
   const { images, variants = [], ...productFields } = updateData;
 
   // 1. Get current product
