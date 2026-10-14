@@ -177,7 +177,7 @@ const normalizedVariants = normalizeVariants(variants, productSlug);
   const { data: product, error } = await supabaseAdmin
     .from('products')
     .insert({
-      name: productFields.name,
+      name: String(productFields.name || '').trim(),
       slug: productSlug,
       description: productFields.description || '',
       base_price: productFields.base_price,
@@ -275,7 +275,9 @@ const normalizedVariants = normalizeVariants(
 
   // 2. Build update payload (only include defined fields)
   const payload = {};
-  if (productFields.name !== undefined) payload.name = productFields.name;
+  if (productFields.name !== undefined) {
+  payload.name = String(productFields.name || '').trim();
+}
   if (productFields.slug !== undefined) {
   payload.slug = slugPart(productFields.slug);
 }
