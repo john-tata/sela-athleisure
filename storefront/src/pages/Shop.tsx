@@ -218,13 +218,22 @@ export function Shop() {
         break;
     }
 
-    return result;
-  }, [
-    products,
-    sort,
-    selectedCategories,
-    urlSearch,
-  ]);
+    // New Arrivals should display only the latest 20 products.
+// Keep the full product list for the normal Shop page.
+if (isNewArrivals && !slug && !urlCategory && !urlSearch.trim()) {
+  result = result.slice(0, 20);
+}
+
+return result;
+}, [
+  products,
+  sort,
+  selectedCategories,
+  urlSearch,
+  isNewArrivals,
+  slug,
+  urlCategory,
+]);
 
   /*
    * PAGINATION
