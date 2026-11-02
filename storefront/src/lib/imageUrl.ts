@@ -1,12 +1,11 @@
 
 export function optimizeImage(
   url: string,
-  width: number,
-  quality = 75
+  _width?: number,
+  _quality = 75
 ) {
   if (!url) return "";
 
-  // Use original Supabase Storage images.
-  // Image transformations are currently returning 403.
+  // Return original image URL without Supabase transformations.
   return url.split("?")[0];
 }
